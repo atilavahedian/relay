@@ -17,7 +17,7 @@ Claude:                Codex found 2 issues. Fixing the first one…
 ## Install
 
 ```bash
-npm install -g github:atilavahedian/relay
+npm install -g relay-agents
 relay init
 ```
 
