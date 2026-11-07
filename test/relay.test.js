@@ -160,7 +160,7 @@ test('init writes Codex, Gemini and Cursor configs and uninstall removes them', 
   fs.mkdirSync(path.join(dir, '.cursor'));
   fs.writeFileSync(path.join(dir, '.codex', 'config.toml'), 'model = "gpt-5"\n');
   // PATH without any agent CLIs, so only the config-dir targets are detected.
-  const env = { ...process.env, HOME: dir, CODEX_HOME: path.join(dir, '.codex'), PATH: path.dirname(process.execPath), RELAY_PATH: '' };
+  const env = { ...process.env, HOME: dir, USERPROFILE: dir, CODEX_HOME: path.join(dir, '.codex'), PATH: path.dirname(process.execPath), RELAY_PATH: '' };
   const out = execFileSync(process.execPath, [bin, 'init'], { env, encoding: 'utf8' });
   assert.match(out, /✓ Codex/);
   assert.match(out, /✓ Cursor/);

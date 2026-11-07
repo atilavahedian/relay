@@ -195,7 +195,7 @@ test('Cursor stream-json (documented schema) and flags', async () => {
     { type: 'tool_call', subtype: 'started', call_id: '2', tool_call: { function: { name: 'grep', arguments: '{"q":"x"}' } } },
     { type: 'result', subtype: 'success', is_error: false, result: 'a.ts exports one function.', session_id: 'c-1' },
   ]) c.onLine(JSON.stringify(e), st, (l) => logs.push(l));
-  assert.deepEqual(logs, ['• Reading the file.', '• read(src/a.ts)', '• grep({"q":"x"})']);
+  assert.deepEqual(logs, ['• Reading the file.', `• read(${path.join('src', 'a.ts')})`, '• grep({"q":"x"})']);
   assert.deepEqual(c.finish(st, ''), { text: 'a.ts exports one function.', session: 'c-1' });
   assert.ok(c.args({ readOnly: true }).join(' ').includes('--trust --mode ask'));
   assert.ok(c.args({ readOnly: false }).includes('--force'));
