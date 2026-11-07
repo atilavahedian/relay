@@ -41,6 +41,13 @@ const short = (s, n = 140) => {
   return one.length > n ? one.slice(0, n - 1) + '…' : one;
 };
 
+// `/bin/zsh -lc "npm test"` → `npm test`
+const unwrapShell = (cmd) => {
+  const m = /^\S*\/(?:ba|z)?sh\s+-l?c\s+(['"])([\s\S]*)\1$/.exec(String(cmd || '').trim());
+  return m ? m[2] : String(cmd || '');
+};
+const rel = (cwd, p) => (cwd && p && path.isAbsolute(p) && !path.relative(cwd, p).startsWith('..') ? path.relative(cwd, p) || '.' : p);
+
 const codexConfig = () => path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'config.toml');
 
 // ---------------------------------------------------------------------------
@@ -73,10 +80,10 @@ const BUILD_BASH = [
 ];
 const bashRules = (cmds) => cmds.map((c) => `Bash(${c}:*)`);
 
-function claudeToolLine(block) {
+function claudeToolLine(block, cwd) {
   const input = block.input || {};
   const target = input.command ?? input.file_path ?? input.path ?? input.pattern ?? input.url ?? input.query ?? '';
-  return `${block.name}(${short(target, 110)})`;
+  return `${block.name}(${short(rel(cwd, target), 110)})`;
 }
 
 const claude = {
@@ -111,7 +118,7 @@ const claude = {
           st.texts.push(block.text);
           log(`⏺ ${short(block.text, 400)}`);
         } else if (block.type === 'tool_use') {
-          log(`⏺ ${claudeToolLine(block)}`);
+          log(`⏺ ${claudeToolLine(block, st.cwd)}`);
         }
       }
     } else if (ev.type === 'user') {
@@ -173,7 +180,7 @@ const codex = {
     if (ev.type === 'thread.started') st.session = ev.thread_id;
     else if (ev.type === 'turn.failed') st.error = ev.error?.message || 'Codex turn failed';
     else if (ev.type === 'error') st.error = ev.message || 'Codex error';
-    else if (ev.type === 'item.started' && item.type === 'command_execution') log(`• Running ${short(item.command, 140)}`);
+    else if (ev.type === 'item.started' && item.type === 'command_execution') log(`• Running ${short(unwrapShell(item.command), 140)}`);
     else if (ev.type === 'item.completed') {
       if (item.type === 'agent_message') {
         st.texts.push(item.text);
@@ -182,7 +189,7 @@ const codex = {
         const tail = short(String(item.aggregated_output || '').trim().split('\n').slice(-1)[0], 120);
         log(`  └ ${item.exit_code === 0 ? 'ok' : `exit ${item.exit_code}`}${tail ? `: ${tail}` : ''}`);
       } else if (item.type === 'file_change') {
-        for (const c of item.changes || []) log(`• ${c.kind === 'add' ? 'Added' : c.kind === 'delete' ? 'Deleted' : 'Edited'} ${c.path}`);
+        for (const c of item.changes || []) log(`• ${c.kind === 'add' ? 'Added' : c.kind === 'delete' ? 'Deleted' : 'Edited'} ${rel(st.cwd, c.path)}`);
       } else if (item.type === 'mcp_tool_call') log(`• Called ${item.server}.${item.tool}`);
       else if (item.type === 'web_search') log(`• Searched the web: ${short(item.query, 100)}`);
       else if (item.type === 'reasoning' && item.text) log(`  ${short(item.text, 160)}`);
@@ -375,7 +382,7 @@ function spawnOnce(name, agent, prompt, { cwd, readOnly, session, timeoutMs, onL
 
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], shell: process.platform === 'win32' });
-    const state = { texts: [] };
+    const state = { texts: [], cwd };
     let reported = session || (rawArgs.includes(newSessionId) ? newSessionId : undefined);
     let stdout = '';
     let stderr = '';
