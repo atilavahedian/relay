@@ -31,7 +31,7 @@ function sandbox() {
 }
 
 function mcpSession(env, cwd) {
-  const child = spawn(process.execPath, [bin, 'serve', '--as', 'tester'], { env: { ...process.env, ...env }, cwd });
+  const child = spawn(process.execPath, [bin, 'serve', '--as', 'tester'], { env: { ...process.env, RELAY_NOTIFY: '0', ...env }, cwd });
   let buffer = '';
   const waiting = new Map();
   child.stdout.on('data', (d) => {
@@ -63,7 +63,7 @@ test('MCP: initialize, list tools, hand off to an agent, record the thread', asy
 
     const list = await s.request('tools/list', {});
     const names = list.result.tools.map((t) => t.name);
-    assert.deepEqual(names, ['handoff', 'ask', 'review', 'thread', 'note']);
+    assert.deepEqual(names, ['handoff', 'ask', 'review', 'status', 'thread', 'note']);
     assert.ok(list.result.tools[0].inputSchema.properties.to.enum.includes('fake'));
 
     const call = await s.request('tools/call', { name: 'handoff', arguments: { to: 'fake', task: 'write tests', cwd: project } });

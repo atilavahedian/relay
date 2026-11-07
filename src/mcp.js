@@ -10,12 +10,10 @@ export function serve({ name, version, instructions, listTools, callTool }) {
   const progressFor = (token) => {
     if (token === undefined) return undefined;
     let n = 0;
-    return (ms) => {
+    return (ms, latest) => {
       n += 1;
-      send({
-        method: 'notifications/progress',
-        params: { progressToken: token, progress: n, message: `still working (${Math.round(ms / 1000)}s)` },
-      });
+      const message = `still working (${Math.round(ms / 1000)}s)${latest ? `: ${latest}` : ''}`;
+      send({ method: 'notifications/progress', params: { progressToken: token, progress: n, message } });
     };
   };
 

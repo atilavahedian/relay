@@ -35,15 +35,28 @@ export function append(root, entry) {
   return record;
 }
 
-export function read(root, limit = 20) {
-  let lines;
+function threadLines(root) {
   try {
-    lines = fs.readFileSync(threadFile(root), 'utf8').split('\n').filter(Boolean);
+    return fs.readFileSync(threadFile(root), 'utf8').split('\n').filter(Boolean);
   } catch {
     return [];
   }
+}
+
+export const count = (root) => threadLines(root).length;
+
+// Entries appended after the first `from` ones (used to tell an agent what it missed).
+export function readSince(root, from) {
+  return parseLines(threadLines(root).slice(from));
+}
+
+export function read(root, limit = 20) {
+  return parseLines(threadLines(root).slice(-limit));
+}
+
+function parseLines(lines) {
   const out = [];
-  for (const line of lines.slice(-limit)) {
+  for (const line of lines) {
     try {
       out.push(JSON.parse(line));
     } catch {

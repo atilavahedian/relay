@@ -1,6 +1,7 @@
 // Builds the prompt the receiving agent sees: the task, plus the repo state and
 // recent relay history, so nobody has to paste code or explain what happened.
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import { clip, formatThread } from './store.js';
 
 function git(cwd, args, max = 20000) {
@@ -17,8 +18,14 @@ function git(cwd, args, max = 20000) {
   }
 }
 
+// Real path, so /var/… and /private/var/… (or a symlinked checkout) map to the same project.
 export function projectRoot(cwd) {
-  return git(cwd, ['rev-parse', '--show-toplevel']) || cwd;
+  const root = git(cwd, ['rev-parse', '--show-toplevel']) || cwd;
+  try {
+    return fs.realpathSync(root);
+  } catch {
+    return root;
+  }
 }
 
 export function repoState(cwd, { fullDiff = false } = {}) {
@@ -46,13 +53,16 @@ const RULES = {
   review: 'Read-only: review the changes. Do not modify any files.',
 };
 
-export function buildPrompt({ from, to, kind, task, context, cwd, root, history = [] }) {
+export function buildPrompt({ from, to, kind, task, context, conversation, cwd, root, history = [] }) {
   const sections = [
     `[relay] ${from} is handing this to you (${to}). Kind: ${kind}.`,
     `Project: ${root}${cwd !== root ? `\nWorking directory: ${cwd}` : ''}`,
     `## Task\n${task}`,
   ];
   if (context && context.trim()) sections.push(`## Context from ${from}\n${context.trim()}`);
+  if (conversation && conversation.trim()) {
+    sections.push(`## Recent conversation between the user and ${from} (for background; the task above is what to do)\n${conversation.trim()}`);
+  }
   const state = repoState(cwd, { fullDiff: kind === 'review' });
   if (state) sections.push(`## Repo state\n${state}`);
   if (history.length) sections.push(`## Recent relay history in this project\n${formatThread(history, { max: 600 })}`);
