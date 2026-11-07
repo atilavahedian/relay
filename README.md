@@ -2,6 +2,8 @@
 
 **Stop copy-pasting between coding agents.**
 
+[![test](https://github.com/atilavahedian/relay/actions/workflows/test.yml/badge.svg)](https://github.com/atilavahedian/relay/actions/workflows/test.yml) [![release](https://img.shields.io/github/v/release/atilavahedian/relay)](https://github.com/atilavahedian/relay/releases)
+
 Claude Code, Codex, Gemini CLI and Cursor hand work to each other directly, in the same repo, with the context attached.
 
 ```
