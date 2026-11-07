@@ -236,3 +236,10 @@ test('Cursor final answer is the last message segment, not every progress line g
   ]) BUILTIN.cursor.onLine(JSON.stringify(e), st, () => {});
   assert.equal(BUILTIN.cursor.finish(st, '').text, 'Fixed. Tests pass.');
 });
+
+test('errorSummary picks the explaining line out of stack traces and JSON noise', async () => {
+  const { errorSummary } = await import('../src/agents.js');
+  const noisy = `{\n  "a": 1\n}\nRipgrep is not available.\nAn unexpected critical error occurred:IneligibleTierError: This client is no longer supported\n    at foo (x.js:1:1)\n    at bar (y.js:2:2)`;
+  assert.equal(errorSummary(noisy), 'An unexpected critical error occurred:IneligibleTierError: This client is no longer supported');
+  assert.equal(errorSummary('just one line'), 'just one line');
+});

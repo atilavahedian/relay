@@ -480,6 +480,16 @@ export function available() {
     .map(([name]) => name);
 }
 
+// The one line that explains a failure, not a stack trace or a JSON dump.
+export function errorSummary(text) {
+  const lines = String(text || '')
+    .split('\n')
+    .map((l) => l.trimEnd())
+    .filter((l) => l.trim() && !/^\s+at\s/.test(l) && !/^[\s{}\[\],]*$/.test(l));
+  const key = [...lines].reverse().find((l) => /error|failed|denied|not supported|unauthori|required|invalid|not found/i.test(l));
+  return (key || lines.slice(-3).join('\n')).trim().slice(0, 600);
+}
+
 function spawnOnce(name, agent, prompt, { cwd, readOnly, session, timeoutMs, onLog, onSession }) {
   const bin = binFor(agent);
   const extra = loadConfig()[name]?.args || [];
@@ -559,7 +569,7 @@ function spawnOnce(name, agent, prompt, { cwd, readOnly, session, timeoutMs, onL
         return reject(err);
       }
       if (code !== 0 && !parsed.text) {
-        const detail = (stderr.trim() || stdout.trim()).split('\n').slice(-8).join('\n');
+        const detail = errorSummary(stderr.trim() || stdout.trim());
         return reject(new Error(`${agent.label} exited with code ${code}${detail ? `:\n${detail}` : ''}`));
       }
       resolve({ ...parsed, session: parsed.session || state.session, ms: Date.now() - started });
@@ -584,7 +594,7 @@ export async function run(name, prompt, opts = {}) {
       return await spawnOnce(name, agent, prompt, { ...settings, session: undefined });
     }
   } catch (err) {
-    if (/authenticat|log ?in|credential|unauthori[sz]ed|api[ _]key|auth method/i.test(err.message)) {
+    if (/authenticat|log ?in|credential|unauthori[sz]ed|api[ _]key|auth method|ineligible|no longer supported/i.test(err.message)) {
       const fix = agent.auth?.fix || agent.bin;
       err.message += /^[a-z-]+( [a-z]+)?$/.test(fix) ? `\nSign in first: run \`${fix}\` in a terminal, then try again.` : `\nTo sign in: ${fix}, then try again.`;
     }

@@ -56,7 +56,7 @@ Your open agent windows stay in sync: each message you send includes what the ot
 |---|---|---|---|
 | Claude Code | ✓ | ✓ | ✓ |
 | Codex | ✓ | ✓ | ✓ |
-| Gemini CLI | ✓ | ✓ | via replies |
+| Gemini CLI | ✓ | ✓ (API key) | via replies |
 | Cursor | ✓ | ✓ (`cursor-agent`) | via replies |
 | Any CLI | | ✓ via `~/.relay/agents.json` | |
 
