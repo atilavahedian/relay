@@ -218,7 +218,14 @@ const gemini = {
   label: 'Gemini CLI',
   bin: 'gemini',
   resumeCommand: (id) => `gemini --resume ${id}`,
-  signIn: 'gemini',
+  // Google-account sign-in for individuals was retired; an API key in ~/.gemini/.env works everywhere
+  // (Gemini CLI loads that file itself, so it also works when relay runs with a filtered env).
+  auth: {
+    check: () =>
+      Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_USE_VERTEXAI) ||
+      /^\s*(export\s+)?(GEMINI_API_KEY|GOOGLE_API_KEY|GOOGLE_GENAI_USE_VERTEXAI)\s*=/m.test(readSafe(path.join(os.homedir(), '.gemini', '.env'))),
+    fix: 'put GEMINI_API_KEY=<key from aistudio.google.com/apikey> in ~/.gemini/.env',
+  },
   args({ readOnly, session }) {
     const args = ['--output-format', 'stream-json', '--skip-trust'];
     if (readOnly) args.push('--approval-mode', 'default');
@@ -446,8 +453,17 @@ export function binFor(agent) {
 }
 
 // true / false, or null when the CLI has no cheap way to tell
+const readSafe = (file) => {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return '';
+  }
+};
+
 export function signedIn(agent) {
   if (!agent.auth) return null;
+  if (agent.auth.check) return agent.auth.check();
   const bin = binFor(agent);
   if (!bin) return false;
   try {
@@ -569,7 +585,8 @@ export async function run(name, prompt, opts = {}) {
     }
   } catch (err) {
     if (/authenticat|log ?in|credential|unauthori[sz]ed|api[ _]key|auth method/i.test(err.message)) {
-      err.message += `\nSign in first: run \`${agent.auth?.fix || agent.signIn || agent.bin}\` in a terminal, then try again.`;
+      const fix = agent.auth?.fix || agent.bin;
+      err.message += /^[a-z-]+( [a-z]+)?$/.test(fix) ? `\nSign in first: run \`${fix}\` in a terminal, then try again.` : `\nTo sign in: ${fix}, then try again.`;
     }
     throw err;
   }

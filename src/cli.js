@@ -225,7 +225,7 @@ export async function main(argv) {
         }
         const auth = signedIn(agent);
         const mark = auth === false ? red('✗') : green('✓');
-        const note = auth === false ? red(`signed out: run \`${agent.auth.fix}\``) : dim(bin);
+        const note = auth === false ? red(`signed out: ${/^[a-z-]+ [a-z]+$/.test(agent.auth.fix) ? `run \`${agent.auth.fix}\`` : agent.auth.fix}`) : dim(bin);
         console.log(`  ${mark} ${name.padEnd(12)} ${note}`);
       }
       return;
