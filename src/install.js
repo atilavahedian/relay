@@ -7,9 +7,20 @@ import { which, searchPath } from './agents.js';
 
 const TIMEOUT_SEC = 3600;
 
+// A node path that survives upgrades: prefer the `node` on PATH (e.g. /opt/homebrew/bin/node, a
+// symlink that follows upgrades) over process.execPath (e.g. …/Cellar/node/25.8.2/bin/node).
+export function stableNode() {
+  const onPath = which('node');
+  try {
+    if (onPath && fs.realpathSync(onPath) === fs.realpathSync(process.execPath)) return onPath;
+  } catch {}
+  return process.execPath;
+}
+
+const stableScript = () => fs.realpathSync(process.argv[1]);
+
 export function serverCommand(as) {
-  const script = fs.realpathSync(process.argv[1]);
-  return { command: process.execPath, args: [script, 'serve', '--as', as], env: { RELAY_PATH: searchPath() } };
+  return { command: stableNode(), args: [stableScript(), 'serve', '--as', as], env: { RELAY_PATH: searchPath() } };
 }
 
 function backupOnce(file) {
@@ -61,7 +72,7 @@ export function removeTomlServer(text, name = 'relay') {
     if (anyHeader.test(line)) skipping = own.test(line);
     if (!skipping) out.push(line);
   }
-  return out.join('\n').replace(/\n{3,}/g, '\n\n');
+  return out.join('\n');
 }
 
 export function tomlServerBlock({ command, args, env }) {
@@ -88,8 +99,7 @@ const claudeJson = () => path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir()
 // --- Prompt hooks: on every message you send in an open agent window, relay adds what the
 // other agents did since your last message (finished background jobs, handoffs, notes).
 export function hookCommand(agent) {
-  const script = fs.realpathSync(process.argv[1]);
-  return `${JSON.stringify(process.execPath)} ${JSON.stringify(script)} hook ${agent}`;
+  return `${JSON.stringify(stableNode())} ${JSON.stringify(stableScript())} hook ${agent}`;
 }
 
 const isRelayHook = (h) => typeof h?.command === 'string' && / hook (claude|codex)$/.test(h.command) && h.command.includes('relay');

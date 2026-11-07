@@ -146,6 +146,7 @@ test('codex TOML: relay block is replaced without touching other servers', () =>
     '',
   ].join('\n');
   const cleaned = removeTomlServer(original);
+  assert.equal(removeTomlServer('a = 1\n\n\n\nb = 2\n'), 'a = 1\n\n\n\nb = 2\n', "never reformats lines that are not relay's");
   assert.ok(!cleaned.includes('mcp_servers.relay'));
   assert.ok(cleaned.includes('[mcp_servers.other]') && cleaned.includes('[profiles.fast]') && cleaned.includes('model = "mini"'));
   const block = tomlServerBlock({ command: '/usr/bin/node', args: ['/r/relay.js', 'serve', '--as', 'codex'], env: { RELAY_PATH: '/bin' } });
