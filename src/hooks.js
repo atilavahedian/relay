@@ -62,9 +62,12 @@ export function catchUp({ agent, sessionId, cwd, transcript }) {
   return store.clip(`[relay] Updates from the other coding agents since your last message:\n\n${parts.join('\n\n')}`, MAX_CONTEXT);
 }
 
-// `relay hook claude` — Claude Code UserPromptSubmit / SessionStart hook.
-export function claudeHook(input) {
-  const text = catchUp({ agent: 'claude', sessionId: input.session_id, cwd: input.cwd, transcript: input.transcript_path });
+// `relay hook claude|codex` — UserPromptSubmit hook. Both CLIs read the same JSON shape
+// (Codex ignores plain stdout from this hook in practice, so always answer in JSON).
+export function promptHook(agent, input) {
+  const text = catchUp({ agent, sessionId: input.session_id, cwd: input.cwd, transcript: input.transcript_path });
   if (!text) return '';
   return JSON.stringify({ hookSpecificOutput: { hookEventName: input.hook_event_name || 'UserPromptSubmit', additionalContext: text } });
 }
+
+export const claudeHook = (input) => promptHook('claude', input);

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { allAgents, binFor, signedIn, which } from './agents.js';
 import { projectRoot } from './context.js';
-import { claudeHook, catchUp } from './hooks.js';
+import { promptHook } from './hooks.js';
 import * as install from './install.js';
 import * as jobs from './jobs.js';
 import { serve } from './mcp.js';
@@ -179,13 +179,8 @@ export async function main(argv) {
         input = JSON.parse((await readStdin()) || '{}');
       } catch {}
       try {
-        if (agent === 'claude') {
-          const out = claudeHook(input);
-          if (out) process.stdout.write(out);
-        } else {
-          const text = catchUp({ agent, sessionId: input.session_id, cwd: input.cwd, transcript: input.transcript_path });
-          if (text) process.stdout.write(text);
-        }
+        const out = promptHook(agent, input);
+        if (out) process.stdout.write(out);
       } catch {}
       return;
     }
