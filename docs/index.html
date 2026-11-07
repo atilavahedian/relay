@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>relay: stop copy-pasting between coding agents</title>
+<meta name="description" content="relay lets Claude Code, Codex, Gemini CLI and Cursor hand work to each other directly, in the same repo, with the context attached. One command to install.">
+<meta property="og:title" content="relay: stop copy-pasting between coding agents">
+<meta property="og:description" content="Claude Code, Codex, Gemini CLI and Cursor hand work to each other directly. One command to install.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%235b4cf5'/><path d='M9 11h9l-3-3M23 21h-9l3 3' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbfbfd;
+    --surface: #ffffff;
+    --surface-2: #f3f3f7;
+    --text: #0d0d14;
+    --muted: #5d5d70;
+    --border: #e4e4ec;
+    --accent: #5b4cf5;
+    --accent-ink: #ffffff;
+    --accent-soft: #eeebff;
+    --term-bg: #0f0f17;
+    --term-text: #e7e7f0;
+    --term-dim: #8a8aa3;
+    --claude: #e08a5b;
+    --codex: #4fb7a0;
+    --ok: #4ade80;
+    --shadow: 0 1px 2px rgba(13,13,20,.04), 0 12px 40px -12px rgba(13,13,20,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #09090f;
+      --surface: #12121a;
+      --surface-2: #181822;
+      --text: #f2f2f7;
+      --muted: #a0a0b4;
+      --border: #24242f;
+      --accent: #8a7dff;
+      --accent-ink: #0b0b12;
+      --accent-soft: #1d1a3a;
+      --term-bg: #0c0c13;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 20px 60px -20px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #09090f; --surface: #12121a; --surface-2: #181822; --text: #f2f2f7; --muted: #a0a0b4;
+    --border: #24242f; --accent: #8a7dff; --accent-ink: #0b0b12; --accent-soft: #1d1a3a; --term-bg: #0c0c13;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 20px 60px -20px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+  /* nav */
+  nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; text-decoration: none; }
+  .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+  .logo-mark svg { width: 18px; height: 18px; }
+  .nav-link { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 10px; }
+  .nav-link:hover { color: var(--text); background: var(--surface-2); }
+
+  /* hero */
+  .hero { padding: 56px 0 40px; text-align: center; }
+  @media (min-width: 720px) { .hero { padding: 88px 0 56px; } }
+  .pill { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--muted); border: 1px solid var(--border); background: var(--surface); padding: 5px 12px; border-radius: 999px; }
+  .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: block; }
+  h1 { font-size: clamp(38px, 7vw, 68px); line-height: 1.04; letter-spacing: -.035em; font-weight: 800; margin: 22px auto 18px; max-width: 14ch; }
+  h1 span { color: var(--accent); }
+  .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 40ch; margin: 0 auto 32px; }
+
+  .install { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: stretch; }
+  .cmd { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 6px 6px 6px 18px; box-shadow: var(--shadow); max-width: 100%; }
+  .cmd code { font-size: 14px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .cmd code::-webkit-scrollbar { display: none; }
+  .cmd code b { color: var(--accent); font-weight: 500; }
+  .copy { flex: none; border: 0; background: var(--surface-2); color: var(--text); font: 500 13px Inter, sans-serif; padding: 9px 12px; border-radius: 10px; cursor: pointer; }
+  .copy:hover { background: var(--accent-soft); }
+  .btn { display: inline-flex; align-items: center; gap: 10px; background: var(--text); color: var(--bg); font-weight: 600; font-size: 15px; padding: 0 20px; min-height: 48px; border-radius: 14px; text-decoration: none; transition: transform .15s ease; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn svg { width: 18px; height: 18px; }
+
+  /* demo */
+  .demo { margin: 56px auto 0; max-width: 780px; text-align: left; }
+  .term { background: var(--term-bg); color: var(--term-text); border-radius: 18px; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,.06); overflow: hidden; }
+  .term-bar { display: flex; align-items: center; gap: 7px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .term-bar i { width: 11px; height: 11px; border-radius: 50%; background: #2b2b38; display: block; }
+  .term-bar span { margin-left: 10px; font-size: 12px; color: var(--term-dim); font-family: "JetBrains Mono", monospace; }
+  .term-body { padding: 20px 18px 24px; font: 13.5px/1.7 "JetBrains Mono", ui-monospace, monospace; min-height: 320px; }
+  @media (min-width: 720px) { .term-body { padding: 24px 26px 28px; font-size: 14px; } }
+  .line { opacity: 0; transform: translateY(4px); transition: opacity .35s ease, transform .35s ease; white-space: pre-wrap; word-break: break-word; }
+  .line.show { opacity: 1; transform: none; }
+  .who { font-weight: 500; }
+  .you { color: #fff; }
+  .claude { color: var(--claude); }
+  .codex { color: var(--codex); }
+  .dim { color: var(--term-dim); }
+  .ok { color: var(--ok); }
+  .gap { height: 12px; }
+  .caret::after { content: "▍"; color: var(--term-dim); animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .line { transition: none; } .caret::after { animation: none; } }
+
+  /* sections */
+  section { padding: 72px 0; }
+  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+  h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.12; letter-spacing: -.025em; margin: 0 0 14px; font-weight: 750; }
+  .sub { color: var(--muted); font-size: 18px; max-width: 52ch; margin: 0; }
+
+  .problem { display: grid; gap: 16px; margin-top: 36px; }
+  @media (min-width: 720px) { .problem { grid-template-columns: 1fr 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
+  .card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .card ol { margin: 0; padding-left: 20px; color: var(--muted); }
+  .card ol li { margin: 4px 0; }
+  .card.good { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: linear-gradient(180deg, var(--accent-soft), var(--surface) 70%); }
+  .card.good ol { color: var(--text); }
+  .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); color: var(--muted); }
+  .good .tag { background: var(--accent); color: var(--accent-ink); }
+
+  .steps { display: grid; gap: 16px; margin-top: 36px; counter-reset: step; }
+  @media (min-width: 820px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
+  .step::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; margin-bottom: 16px; }
+  .step h3 { margin: 0 0 6px; font-size: 17px; }
+  .step p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+  .step code { display: block; font-size: 13px; background: var(--surface-2); padding: 10px 12px; border-radius: 10px; overflow-x: auto; white-space: nowrap; }
+
+  .features { display: grid; gap: 1px; margin-top: 36px; background: var(--border); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+  @media (min-width: 640px) { .features { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 900px) { .features { grid-template-columns: repeat(3, 1fr); } }
+  .feature { background: var(--surface); padding: 24px; }
+  .feature h3 { margin: 0 0 6px; font-size: 16px; }
+  .feature p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .agents { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+  .agent { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-weight: 500; font-size: 15px; }
+  .agent i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+
+  .cta { text-align: center; padding: 88px 0; }
+  .cta .sub { margin: 0 auto 28px; }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+  footer a { text-decoration: none; }
+  footer a:hover { color: var(--text); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="logo" href="#">
+        <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h11l-3-3M19 16H8l3 3"/></svg></span>
+        relay
+      </a>
+      <a class="nav-link" href="https://github.com/atilavahedian/relay">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </nav>
+
+    <header class="hero">
+      <span class="pill"><i></i> Open source · MIT · zero dependencies</span>
+      <h1>Stop copy-pasting between <span>coding agents.</span></h1>
+      <p class="lede">relay lets Claude Code, Codex, Gemini and Cursor hand work to each other directly, in the same repo, with the context attached.</p>
+      <div class="install">
+        <div class="cmd">
+          <code id="cmd"><b>npm</b> i -g github:atilavahedian/relay &amp;&amp; <b>relay</b> init</code>
+          <button class="copy" id="copy" type="button">Copy</button>
+        </div>
+        <a class="btn" href="https://github.com/atilavahedian/relay">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="demo">
+        <div class="term" role="img" aria-label="Demo: in Claude Code the user asks Codex to review the change; Codex replies with an issue and Claude fixes it.">
+          <div class="term-bar"><i></i><i></i><i></i><span>~/app · claude</span></div>
+          <div class="term-body" id="term">
+            <div class="line"><span class="who you">you</span>     ask codex to review my changes</div>
+            <div class="gap"></div>
+            <div class="line"><span class="who claude">claude</span>  <span class="dim">→ relay.review(to: "codex")</span></div>
+            <div class="line"><span class="dim">        attached: branch, 3 changed files, full diff, history</span></div>
+            <div class="gap"></div>
+            <div class="line"><span class="who codex">codex</span>   <span class="dim">replied after 41s</span></div>
+            <div class="line">        1. src/auth.ts:42 token expiry is compared in seconds</div>
+            <div class="line">           against Date.now() in ms, so sessions never expire.</div>
+            <div class="line">        2. Looks good otherwise.</div>
+            <div class="gap"></div>
+            <div class="line"><span class="who claude">claude</span>  Codex caught a real bug. Fixing src/auth.ts:42 now…</div>
+            <div class="line"><span class="ok">        ✓ fixed · tests pass</span> <span class="caret"></span></div>
+          </div>
+        </div>
+      </div>
+    </header>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">The problem</p>
+      <h2>You became the clipboard.</h2>
+      <p class="sub">Every second opinion means copying code out of one agent, pasting it into another, and pasting the answer back. Context gets lost every time.</p>
+      <div class="problem">
+        <div class="card">
+          <h3><span class="tag">Before</span></h3>
+          <ol>
+            <li>Copy the diff from Claude</li>
+            <li>Paste it into Codex, explain the project again</li>
+            <li>Copy Codex's answer</li>
+            <li>Paste it back into Claude</li>
+            <li>Repeat for every follow-up</li>
+          </ol>
+        </div>
+        <div class="card good">
+          <h3><span class="tag">With relay</span></h3>
+          <ol>
+            <li>Say “ask codex to review this”</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">How it works</p>
+      <h2>One command. Then just ask.</h2>
+      <div class="steps">
+        <div class="step">
+          <h3>Install</h3>
+          <p>relay finds every agent on your machine and connects them.</p>
+          <code>relay init</code>
+        </div>
+        <div class="step">
+          <h3>Ask in plain words</h3>
+          <p>From inside any agent, name another one and say what you want.</p>
+          <code>"hand the tests to codex"</code>
+        </div>
+        <div class="step">
+          <h3>Get the answer back</h3>
+          <p>The other agent works in the same repo and its reply lands in your conversation.</p>
+          <code>codex replied after 41s…</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">Why it works</p>
+      <h2>Built to disappear.</h2>
+      <div class="features">
+        <div class="feature"><h3>Your existing logins</h3><p>relay runs the real CLIs, so there are no API keys and no extra bills.</p></div>
+        <div class="feature"><h3>Context attached</h3><p>Branch, changed files, the diff and recent history go along automatically.</p></div>
+        <div class="feature"><h3>Agents remember</h3><p>Follow-ups to the same agent continue its previous session.</p></div>
+        <div class="feature"><h3>Full-power agents</h3><p>The agent receiving the task keeps its own tools, sandbox and repo access.</p></div>
+        <div class="feature"><h3>No loops</h3><p>An agent started by relay can't hand work back again.</p></div>
+        <div class="feature"><h3>Tiny and local</h3><p>Zero dependencies. Everything stays on your machine in ~/.relay.</p></div>
+      </div>
+      <div class="agents">
+        <span class="agent"><i style="background:var(--claude)"></i>Claude Code</span>
+        <span class="agent"><i style="background:var(--codex)"></i>Codex</span>
+        <span class="agent"><i style="background:#5b8def"></i>Gemini CLI</span>
+        <span class="agent"><i style="background:var(--muted)"></i>Cursor</span>
+        <span class="agent"><i style="background:var(--accent)"></i>Any CLI agent</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="cta">
+      <h2>Put the clipboard down.</h2>
+      <p class="sub">Free and open source. Set up in under a minute.</p>
+      <a class="btn" href="https://github.com/atilavahedian/relay">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Get relay on GitHub
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <span>relay · MIT License</span>
+      <a href="https://github.com/atilavahedian/relay">github.com/atilavahedian/relay</a>
+    </div>
+  </footer>
+
+<script>
+  (function () {
+    var btn = document.getElementById('copy');
+    btn.addEventListener('click', function () {
+      var text = 'npm i -g github:atilavahedian/relay && relay init';
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1600); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, done); else done();
+    });
+
+    var lines = document.querySelectorAll('#term .line');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !('IntersectionObserver' in window)) {
+      lines.forEach(function (l) { l.classList.add('show'); });
+      return;
+    }
+    var delays = [0, 700, 300, 1400, 250, 250, 250, 900, 500];
+    var played = false;
+    new IntersectionObserver(function (entries, obs) {
+      if (played || !entries[0].isIntersecting) return;
+      played = true; obs.disconnect();
+      var t = 300;
+      lines.forEach(function (l, i) { t += delays[i] || 300; setTimeout(function () { l.classList.add('show'); }, t); });
+    }, { threshold: 0.3 }).observe(document.getElementById('term'));
+  })();
+</script>
+</body>
+</html>
