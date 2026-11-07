@@ -1,0 +1,11 @@
+// Deploys the website (docs/) to Cloudflare at getrelay.fun. Not part of the npm package.
+{
+  "name": "relay-site",
+  "main": "site-worker.js",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./docs", "binding": "ASSETS", "run_worker_first": true },
+  "routes": [
+    { "pattern": "getrelay.fun", "custom_domain": true },
+    { "pattern": "www.getrelay.fun", "custom_domain": true }
+  ]
+}

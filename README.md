@@ -12,7 +12,7 @@ Claude → relay → Codex reads the diff, reviews it, replies
 Claude:                Codex found 2 issues. Fixing the first one…
 ```
 
-**[Website](https://atilavahedian.github.io/relay/)**
+**[getrelay.fun](https://getrelay.fun)**
 
 ## Install
 
