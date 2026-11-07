@@ -210,13 +210,57 @@ const codex = {
 };
 
 // ---------------------------------------------------------------------------
-// Gemini CLI
+// Gemini CLI  (docs: github.com/google-gemini/gemini-cli docs/cli/headless.md)
+// Headless Gemini denies anything that would prompt. auto_edit allows edits but not shell, so on
+// macOS handoffs run in yolo mode inside Gemini's Seatbelt sandbox (writes limited to the project).
 const gemini = {
   label: 'Gemini CLI',
   bin: 'gemini',
-  resumeCommand: () => 'gemini --resume latest',
-  args({ readOnly }) {
-    return ['--output-format', 'json', '--approval-mode', readOnly ? 'default' : 'auto_edit', '-p', PROMPT];
+  resumeCommand: (id) => `gemini --resume ${id}`,
+  args({ readOnly, session }) {
+    const args = ['--output-format', 'stream-json', '--skip-trust'];
+    if (readOnly) args.push('--approval-mode', 'default');
+    else if (process.platform === 'darwin') args.push('--approval-mode', 'yolo', '--sandbox');
+    else args.push('--approval-mode', 'auto_edit');
+    if (session) args.push('--resume', session);
+    args.push('-p', PROMPT);
+    return args;
+  },
+  onLine(line, st, log) {
+    let ev;
+    try {
+      ev = JSON.parse(line);
+    } catch {
+      return;
+    }
+    if (ev.session_id) st.session = ev.session_id;
+    if (ev.type === 'message' && ev.role === 'assistant') {
+      // deltas belong to the same message; a non-delta starts a new one
+      if (ev.delta && st.texts.length && st.lastWasDelta) st.texts[st.texts.length - 1] += ev.content || '';
+      else st.texts.push(ev.content || '');
+      st.lastWasDelta = Boolean(ev.delta);
+    } else if (ev.type === 'tool_use') {
+      st.lastWasDelta = false; // text after a tool call is a new message
+      flushGemini(st, log);
+      const p = ev.parameters || {};
+      log(`• ${ev.tool_name}(${short(rel(st.cwd, p.command ?? p.file_path ?? p.absolute_path ?? p.path ?? p.pattern ?? ''), 110)})`);
+    } else if (ev.type === 'tool_result') {
+      log(`  └ ${ev.status === 'error' ? `error: ${short(ev.error?.message, 140)}` : short(ev.output || 'ok', 140)}`);
+    } else if (ev.type === 'error' && ev.severity === 'error') {
+      st.error = ev.message;
+    } else if (ev.type === 'result') {
+      flushGemini(st, log);
+      if (ev.status && ev.status !== 'success') st.error = ev.error?.message || `Gemini CLI stopped (${ev.status})`;
+    }
+  },
+  finish(st, stdout) {
+    if (!st.texts.length && !st.error) {
+      const json = lastJson(stdout); // --output-format json fallback
+      if (json?.error) throw new Error(json.error.message || String(json.error));
+      if (json?.response !== undefined) return { text: json.response, session: json.session_id };
+    }
+    if (st.error && !st.texts.join('').trim()) throw new Error(st.error);
+    return { text: st.texts.join('\n\n').trim(), session: st.session };
   },
   parse(out) {
     const json = lastJson(out);
@@ -226,20 +270,35 @@ const gemini = {
   },
 };
 
+function flushGemini(st, log) {
+  const pending = st.texts.slice(st.logged || 0).join(' ').trim();
+  if (pending) log(`• ${short(pending, 400)}`);
+  st.logged = st.texts.length;
+}
+
 // ---------------------------------------------------------------------------
-// Cursor Agent CLI
+// Cursor Agent CLI  (docs: cursor.com/docs/cli/headless, /reference/output-format)
+const cursorToolLine = (call, cwd) => {
+  const name = Object.keys(call || {})[0] || 'tool';
+  const body = call[name] || {};
+  if (name === 'function') return `${body.name || 'tool'}(${short(body.arguments, 100)})`;
+  const a = body.args || {};
+  return `${name.replace(/ToolCall$/, '')}(${short(rel(cwd, a.command ?? a.path ?? a.pattern ?? a.query ?? ''), 110)})`;
+};
+
 const cursor = {
   label: 'Cursor Agent',
   bin: 'cursor-agent',
-  // Newer installs also expose `agent`, but other tools use that name too: accept it only
-  // when it really is Cursor's binary.
+  // `agent` is the newer name, but other tools use it too: accept it only when it is Cursor's.
   altBins: ['agent'],
   verifyBin: (p) => /cursor/i.test(realpath(p)),
   resumeCommand: (id) => `cursor-agent --resume ${id}`,
   args({ readOnly, session }) {
-    const args = ['-p', '--output-format', 'stream-json'];
+    // --trust: headless runs in a not-yet-trusted folder fail without it (Cursor CLI, Jan 2026)
+    const args = ['-p', '--output-format', 'stream-json', '--trust'];
     if (session) args.push('--resume', session);
-    if (!readOnly) args.push('--force');
+    if (readOnly) args.push('--mode', 'ask');
+    else args.push('--force');
     args.push(PROMPT);
     return args;
   },
@@ -258,17 +317,18 @@ const cursor = {
         log(`• ${short(text, 400)}`);
       }
     } else if (ev.type === 'tool_call' && ev.subtype === 'started') {
-      const call = ev.tool_call || {};
-      const name = Object.keys(call)[0] || 'tool';
-      const args = call[name]?.args || {};
-      log(`• ${name.replace(/ToolCall$/, '')} ${short(args.command ?? args.path ?? '', 110)}`);
+      log(`• ${cursorToolLine(ev.tool_call, st.cwd)}`);
+    } else if (ev.type === 'tool_call' && ev.subtype === 'completed') {
+      const body = Object.values(ev.tool_call || {})[0] || {};
+      if (body.result?.error || body.result?.failure) log(`  └ error`);
     } else if (ev.type === 'result') {
       st.final = ev.result;
       if (ev.is_error) st.error = ev.result || 'Cursor Agent returned an error';
     }
   },
   finish(st, stdout) {
-    if (!st.final && !st.texts.length) {
+    if (st.error) throw new Error(st.error);
+    if (st.final === undefined && !st.texts.length) {
       const json = lastJson(stdout);
       if (json) {
         if (json.is_error) throw new Error(json.result || 'Cursor Agent returned an error');
@@ -276,8 +336,7 @@ const cursor = {
       }
       return { text: stdout.trim() };
     }
-    if (st.error && !st.texts.length) throw new Error(st.error);
-    return { text: st.final ?? st.texts.join('').trim(), session: st.session };
+    return { text: st.final ?? st.texts.join('\n\n').trim(), session: st.session };
   },
   parse(out) {
     const json = lastJson(out);

@@ -154,3 +154,49 @@ test('Claude stream-json adapter: live log lines, final result, session id', asy
   if (process.platform !== 'win32') assert.match(args[args.indexOf('--settings') + 1], /"autoAllowBashIfSandboxed":true/);
   assert.ok(args.includes('Bash(npm test:*)'));
 });
+
+test('Gemini stream-json (documented schema): deltas joined, tools logged, errors surfaced', async () => {
+  const { BUILTIN } = await import('../src/agents.js');
+  const g = BUILTIN.gemini;
+  const st = { texts: [], cwd: '/p' };
+  const logs = [];
+  for (const e of [
+    { type: 'init', session_id: 'g-1', model: 'gemini-x' },
+    { type: 'message', role: 'user', content: 'task' },
+    { type: 'message', role: 'assistant', content: 'Running the ', delta: true },
+    { type: 'message', role: 'assistant', content: 'tests.', delta: true },
+    { type: 'tool_use', tool_name: 'run_shell_command', tool_id: 't1', parameters: { command: 'npm test' } },
+    { type: 'tool_result', tool_id: 't1', status: 'success', output: '12 passing' },
+    { type: 'message', role: 'assistant', content: 'All 12 pass.', delta: true },
+    { type: 'result', status: 'success', stats: { tool_calls: 1 } },
+  ]) g.onLine(JSON.stringify(e), st, (l) => logs.push(l));
+  assert.deepEqual(logs, ['• Running the tests.', '• run_shell_command(npm test)', '  └ 12 passing', '• All 12 pass.']);
+  assert.deepEqual(g.finish(st, ''), { text: 'Running the tests.\n\nAll 12 pass.', session: 'g-1' });
+
+  const bad = { texts: [] };
+  g.onLine(JSON.stringify({ type: 'result', status: 'error', error: { type: 'auth', message: 'Please sign in' } }), bad, () => {});
+  assert.throws(() => g.finish(bad, ''), /Please sign in/);
+
+  const ro = g.args({ readOnly: true });
+  assert.deepEqual(ro.slice(0, 5), ['--output-format', 'stream-json', '--skip-trust', '--approval-mode', 'default']);
+  assert.equal(g.args({ readOnly: false, session: 'g-1' }).includes('--resume'), true);
+});
+
+test('Cursor stream-json (documented schema) and flags', async () => {
+  const { BUILTIN } = await import('../src/agents.js');
+  const c = BUILTIN.cursor;
+  const st = { texts: [], cwd: '/p' };
+  const logs = [];
+  for (const e of [
+    { type: 'system', subtype: 'init', session_id: 'c-1', model: 'x' },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'Reading the file.' }] }, session_id: 'c-1' },
+    { type: 'tool_call', subtype: 'started', call_id: '1', tool_call: { readToolCall: { args: { path: '/p/src/a.ts' } } } },
+    { type: 'tool_call', subtype: 'completed', call_id: '1', tool_call: { readToolCall: { args: { path: '/p/src/a.ts' }, result: { success: { content: 'x' } } } } },
+    { type: 'tool_call', subtype: 'started', call_id: '2', tool_call: { function: { name: 'grep', arguments: '{"q":"x"}' } } },
+    { type: 'result', subtype: 'success', is_error: false, result: 'a.ts exports one function.', session_id: 'c-1' },
+  ]) c.onLine(JSON.stringify(e), st, (l) => logs.push(l));
+  assert.deepEqual(logs, ['• Reading the file.', '• read(src/a.ts)', '• grep({"q":"x"})']);
+  assert.deepEqual(c.finish(st, ''), { text: 'a.ts exports one function.', session: 'c-1' });
+  assert.ok(c.args({ readOnly: true }).join(' ').includes('--trust --mode ask'));
+  assert.ok(c.args({ readOnly: false }).includes('--force'));
+});

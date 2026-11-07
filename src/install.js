@@ -186,7 +186,7 @@ export const TARGETS = [
     id: 'cursor',
     label: 'Cursor',
     detect: () => which('cursor-agent') || (fs.existsSync(path.join(os.homedir(), '.cursor')) ? '~/.cursor' : null),
-    ...jsonConfigTarget({ file: () => path.join(os.homedir(), '.cursor', 'mcp.json') }),
+    ...jsonConfigTarget({ file: () => path.join(os.homedir(), '.cursor', 'mcp.json'), extra: { type: 'stdio' } }),
   },
 ];
 
