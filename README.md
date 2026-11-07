@@ -64,4 +64,4 @@ Your open agent windows stay in sync: each message you send includes what the ot
 { "aider": { "command": ["aider", "--yes-always", "--message", "{prompt}"] } }
 ```
 
-`relay uninstall` removes everything (configs were backed up as `*.relay-backup`). Requires Node 18+. MIT License.
+`relay uninstall` removes everything (configs were backed up as `*.relay-backup`). Requires Node 20+. MIT License.

@@ -11,10 +11,10 @@
     "src"
   ],
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/relay.test.js test/jobs.test.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "keywords": [
     "mcp",
