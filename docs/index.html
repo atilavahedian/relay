@@ -5,255 +5,190 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>relay: stop copy-pasting between coding agents</title>
 <meta name="description" content="relay lets Claude Code, Codex, Gemini CLI and Cursor hand work to each other directly, in the same repo, with the context attached. One command to install.">
+<meta name="theme-color" content="#08080a">
 <meta property="og:title" content="relay: stop copy-pasting between coding agents">
 <meta property="og:description" content="Claude Code, Codex, Gemini CLI and Cursor hand work to each other directly. One command to install.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%235b4cf5'/><path d='M9 11h9l-3-3M23 21h-9l3 3' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<meta property="og:url" content="https://atilavahedian.github.io/relay/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23d97757'/><stop offset='.55' stop-color='%239b8cff'/><stop offset='1' stop-color='%237cc7ff'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><path d='M9 11h12l-3-3M23 21H11l3 3' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #fbfbfd;
-    --surface: #ffffff;
-    --surface-2: #f3f3f7;
-    --text: #0d0d14;
-    --muted: #5d5d70;
-    --border: #e4e4ec;
-    --accent: #5b4cf5;
-    --accent-ink: #ffffff;
-    --accent-soft: #eeebff;
-    --term-bg: #0f0f17;
-    --term-text: #e7e7f0;
-    --term-dim: #8a8aa3;
-    --claude: #e08a5b;
-    --codex: #4fb7a0;
-    --ok: #4ade80;
-    --shadow: 0 1px 2px rgba(13,13,20,.04), 0 12px 40px -12px rgba(13,13,20,.18);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #09090f;
-      --surface: #12121a;
-      --surface-2: #181822;
-      --text: #f2f2f7;
-      --muted: #a0a0b4;
-      --border: #24242f;
-      --accent: #8a7dff;
-      --accent-ink: #0b0b12;
-      --accent-soft: #1d1a3a;
-      --term-bg: #0c0c13;
-      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 20px 60px -20px rgba(0,0,0,.7);
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #09090f; --surface: #12121a; --surface-2: #181822; --text: #f2f2f7; --muted: #a0a0b4;
-    --border: #24242f; --accent: #8a7dff; --accent-ink: #0b0b12; --accent-soft: #1d1a3a; --term-bg: #0c0c13;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 20px 60px -20px rgba(0,0,0,.7);
-  }
-
-  * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: inherit; }
-  code, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
-  @media (min-width: 720px) { .wrap { padding: 0 32px; } }
-
-  /* nav */
-  nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
-  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; text-decoration: none; }
-  .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
-  .logo-mark svg { width: 18px; height: 18px; }
-  .nav-link { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 10px; }
-  .nav-link:hover { color: var(--text); background: var(--surface-2); }
-
-  /* hero */
-  .hero { padding: 56px 0 40px; text-align: center; }
-  @media (min-width: 720px) { .hero { padding: 88px 0 56px; } }
-  .pill { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--muted); border: 1px solid var(--border); background: var(--surface); padding: 5px 12px; border-radius: 999px; }
-  .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: block; }
-  h1 { font-size: clamp(38px, 7vw, 68px); line-height: 1.04; letter-spacing: -.035em; font-weight: 800; margin: 22px auto 18px; max-width: 14ch; }
-  h1 span { color: var(--accent); }
-  .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 40ch; margin: 0 auto 32px; }
-
-  .install { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: stretch; }
-  .cmd { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 6px 6px 6px 18px; box-shadow: var(--shadow); max-width: 100%; }
-  .cmd code { font-size: 14px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .cmd code::-webkit-scrollbar { display: none; }
-  .cmd code b { color: var(--accent); font-weight: 500; }
-  .copy { flex: none; border: 0; background: var(--surface-2); color: var(--text); font: 500 13px Inter, sans-serif; padding: 9px 12px; border-radius: 10px; cursor: pointer; }
-  .copy:hover { background: var(--accent-soft); }
-  .btn { display: inline-flex; align-items: center; gap: 10px; background: var(--text); color: var(--bg); font-weight: 600; font-size: 15px; padding: 0 20px; min-height: 48px; border-radius: 14px; text-decoration: none; transition: transform .15s ease; }
-  .btn:hover { transform: translateY(-1px); }
-  .btn svg { width: 18px; height: 18px; }
-
-  /* demo */
-  .demo { margin: 56px auto 0; max-width: 780px; text-align: left; }
-  .term { background: var(--term-bg); color: var(--term-text); border-radius: 18px; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,.06); overflow: hidden; }
-  .term-bar { display: flex; align-items: center; gap: 7px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .term-bar i { width: 11px; height: 11px; border-radius: 50%; background: #2b2b38; display: block; }
-  .term-bar span { margin-left: 10px; font-size: 12px; color: var(--term-dim); font-family: "JetBrains Mono", monospace; }
-  .term-body { padding: 20px 18px 24px; font: 13.5px/1.7 "JetBrains Mono", ui-monospace, monospace; min-height: 320px; }
-  @media (min-width: 720px) { .term-body { padding: 24px 26px 28px; font-size: 14px; } }
-  .line { opacity: 0; transform: translateY(4px); transition: opacity .35s ease, transform .35s ease; white-space: pre-wrap; word-break: break-word; }
-  .line.show { opacity: 1; transform: none; }
-  .who { font-weight: 500; }
-  .you { color: #fff; }
-  .claude { color: var(--claude); }
-  .codex { color: var(--codex); }
-  .dim { color: var(--term-dim); }
-  .ok { color: var(--ok); }
-  .gap { height: 12px; }
-  .caret::after { content: "▍"; color: var(--term-dim); animation: blink 1s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { .line { transition: none; } .caret::after { animation: none; } }
-
-  /* sections */
-  section { padding: 72px 0; }
-  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
-  h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.12; letter-spacing: -.025em; margin: 0 0 14px; font-weight: 750; }
-  .sub { color: var(--muted); font-size: 18px; max-width: 52ch; margin: 0; }
-
-  .problem { display: grid; gap: 16px; margin-top: 36px; }
-  @media (min-width: 720px) { .problem { grid-template-columns: 1fr 1fr; } }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
-  .card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .card ol { margin: 0; padding-left: 20px; color: var(--muted); }
-  .card ol li { margin: 4px 0; }
-  .card.good { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: linear-gradient(180deg, var(--accent-soft), var(--surface) 70%); }
-  .card.good ol { color: var(--text); }
-  .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); color: var(--muted); }
-  .good .tag { background: var(--accent); color: var(--accent-ink); }
-
-  .steps { display: grid; gap: 16px; margin-top: 36px; counter-reset: step; }
-  @media (min-width: 820px) { .steps { grid-template-columns: repeat(3, 1fr); } }
-  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
-  .step::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; margin-bottom: 16px; }
-  .step h3 { margin: 0 0 6px; font-size: 17px; }
-  .step p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
-  .step code { display: block; font-size: 13px; background: var(--surface-2); padding: 10px 12px; border-radius: 10px; overflow-x: auto; white-space: nowrap; }
-
-  .features { display: grid; gap: 1px; margin-top: 36px; background: var(--border); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
-  @media (min-width: 640px) { .features { grid-template-columns: 1fr 1fr; } }
-  @media (min-width: 900px) { .features { grid-template-columns: repeat(3, 1fr); } }
-  .feature { background: var(--surface); padding: 24px; }
-  .feature h3 { margin: 0 0 6px; font-size: 16px; }
-  .feature p { margin: 0; color: var(--muted); font-size: 15px; }
-
-  .agents { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
-  .agent { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-weight: 500; font-size: 15px; }
-  .agent i { width: 8px; height: 8px; border-radius: 50%; display: block; }
-
-  .cta { text-align: center; padding: 88px 0; }
-  .cta .sub { margin: 0 auto 28px; }
-
-  footer { border-top: 1px solid var(--border); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
-  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
-  footer a { text-decoration: none; }
-  footer a:hover { color: var(--text); }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<nav>
   <div class="wrap">
-    <nav>
-      <a class="logo" href="#">
-        <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h11l-3-3M19 16H8l3 3"/></svg></span>
-        relay
-      </a>
+    <a class="logo" href="#">
+      <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h13l-3-3M19 16H6l3 3"/></svg></span>
+      relay
+    </a>
+    <div class="nav-links">
+      <a class="nav-link hide-sm" href="#how">How it works</a>
+      <a class="nav-link hide-sm" href="#faq">FAQ</a>
       <a class="nav-link" href="https://github.com/atilavahedian/relay">
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub
       </a>
-    </nav>
+    </div>
+  </div>
+</nav>
 
-    <header class="hero">
-      <span class="pill"><i></i> Open source · MIT · zero dependencies</span>
-      <h1>Stop copy-pasting between <span>coding agents.</span></h1>
-      <p class="lede">relay lets Claude Code, Codex, Gemini and Cursor hand work to each other directly, in the same repo, with the context attached.</p>
+<main>
+  <header class="hero">
+    <div class="wrap">
+      <a class="pill" href="https://github.com/atilavahedian/relay"><i></i> Open source · works with the agents you already use</a>
+      <h1>Stop copy-pasting between <span class="grad">coding agents.</span></h1>
+      <p class="lede">relay lets <b>Claude Code</b>, <b>Codex</b>, <b>Gemini</b> and <b>Cursor</b> hand work to each other directly, in the same repo, with the context attached.</p>
       <div class="install">
         <div class="cmd">
-          <code id="cmd"><b>npm</b> i -g github:atilavahedian/relay &amp;&amp; <b>relay</b> init</code>
-          <button class="copy" id="copy" type="button">Copy</button>
+          <code><span class="prompt">$ </span><span class="k">npm</span> i -g github:atilavahedian/relay &amp;&amp; <span class="k">relay</span> init</code>
+          <button class="copy" type="button" data-copy="npm i -g github:atilavahedian/relay && relay init"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span></button>
         </div>
         <a class="btn" href="https://github.com/atilavahedian/relay">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           View on GitHub
         </a>
       </div>
+      <p class="stars">Free · MIT · zero dependencies · no API keys</p>
+    </div>
+  </header>
 
-      <div class="demo">
-        <div class="term" role="img" aria-label="Demo: in Claude Code the user asks Codex to review the change; Codex replies with an issue and Claude fixes it.">
-          <div class="term-bar"><i></i><i></i><i></i><span>~/app · claude</span></div>
-          <div class="term-body" id="term">
-            <div class="line"><span class="who you">you</span>     ask codex to review my changes</div>
-            <div class="gap"></div>
-            <div class="line"><span class="who claude">claude</span>  <span class="dim">→ relay.review(to: "codex")</span></div>
-            <div class="line"><span class="dim">        attached: branch, 3 changed files, full diff, history</span></div>
-            <div class="gap"></div>
-            <div class="line"><span class="who codex">codex</span>   <span class="dim">replied after 41s</span></div>
-            <div class="line">        1. src/auth.ts:42 token expiry is compared in seconds</div>
-            <div class="line">           against Date.now() in ms, so sessions never expire.</div>
-            <div class="line">        2. Looks good otherwise.</div>
-            <div class="gap"></div>
-            <div class="line"><span class="who claude">claude</span>  Codex caught a real bug. Fixing src/auth.ts:42 now…</div>
-            <div class="line"><span class="ok">        ✓ fixed · tests pass</span> <span class="caret"></span></div>
+  <!-- Live demo: two real-looking agent sessions, relay in between -->
+  <div class="demo" id="demo">
+    <div class="wrap">
+      <div class="tabs" role="tablist" aria-label="Demo scenarios">
+        <button class="tab" role="tab" data-scene="0" aria-selected="true">Review <span class="route">claude → codex</span><span class="bar"></span></button>
+        <button class="tab" role="tab" data-scene="1" aria-selected="false">Hand off <span class="route">codex → claude</span><span class="bar"></span></button>
+        <button class="tab" role="tab" data-scene="2" aria-selected="false">Second opinion <span class="route">claude → codex</span><span class="bar"></span></button>
+      </div>
+
+      <div class="stage" aria-label="Animated demo of Claude Code and Codex handing work to each other through relay">
+        <div class="win claude" id="w-claude">
+          <div class="titlebar"><span class="lights"><i></i><i></i><i></i></span><span class="title"><span class="who">claude</span> · ~/app</span></div>
+          <div class="screen">
+            <div class="body" data-body></div>
+            <div class="cc-input"><span class="m">&gt;</span><span class="typed" data-input></span><span class="cursor" data-cursor></span></div>
+            <div class="cc-hint"><span>? for shortcuts</span><span class="o">relay ✓</span></div>
+          </div>
+        </div>
+
+        <div class="channel" aria-hidden="true">
+          <div class="rail"></div>
+          <div class="hub" id="hub"><i></i>relay</div>
+          <div class="packet" id="packet"></div>
+        </div>
+
+        <div class="win codex" id="w-codex">
+          <div class="titlebar"><span class="lights"><i></i><i></i><i></i></span><span class="title"><span class="who">codex</span> · ~/app</span></div>
+          <div class="screen">
+            <div class="body" data-body></div>
+            <div class="cx-composer"><span class="c">›</span><span class="typed" data-input></span><span class="cursor" data-cursor></span></div>
+            <div class="cx-hint"><span>⏎ send · ⌃J newline · ⌃T transcript</span><span>98% context left</span></div>
           </div>
         </div>
       </div>
-    </header>
+
+      <p class="caption" id="caption" aria-live="polite">&nbsp;</p>
+      <div class="demo-foot"><button class="replay" id="replay" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Replay</button></div>
+    </div>
   </div>
 
   <section>
     <div class="wrap">
-      <p class="eyebrow">The problem</p>
-      <h2>You became the clipboard.</h2>
-      <p class="sub">Every second opinion means copying code out of one agent, pasting it into another, and pasting the answer back. Context gets lost every time.</p>
-      <div class="problem">
-        <div class="card">
-          <h3><span class="tag">Before</span></h3>
-          <ol>
-            <li>Copy the diff from Claude</li>
-            <li>Paste it into Codex, explain the project again</li>
-            <li>Copy Codex's answer</li>
-            <li>Paste it back into Claude</li>
-            <li>Repeat for every follow-up</li>
-          </ol>
+      <div class="center">
+        <p class="eyebrow">The problem</p>
+        <h2>You became the clipboard.</h2>
+        <p class="sub">Every second opinion means copying code out of one agent, pasting it into another, re-explaining the project, and pasting the answer back.</p>
+      </div>
+      <div class="ba">
+        <div class="ba-card">
+          <h3>Without relay</h3>
+          <span class="count">~2 min, every time</span>
+          <div class="chaos">
+            <div><span class="n">1</span><kbd>⌘C</kbd> the diff out of Claude</div>
+            <div><span class="n">2</span>switch to Codex, <kbd>⌘V</kbd></div>
+            <div><span class="n">3</span>re-explain the project, the bug, the plan</div>
+            <div><span class="n">4</span><kbd>⌘C</kbd> Codex's answer</div>
+            <div><span class="n">5</span>switch back, <kbd>⌘V</kbd> into Claude</div>
+            <div><span class="n">6</span>repeat for every follow-up</div>
+          </div>
         </div>
-        <div class="card good">
-          <h3><span class="tag">With relay</span></h3>
-          <ol>
-            <li>Say “ask codex to review this”</li>
-          </ol>
+        <div class="ba-card after">
+          <h3>With relay</h3>
+          <span class="count">one sentence</span>
+          <div class="one"><span class="d">&gt;</span>ask codex to review this</div>
+          <ul class="after-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Codex gets the task, branch, changed files and diff</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>It works in the same repo, with its own tools</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Its answer lands back in your Claude session</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Follow-ups continue where it left off</li>
+          </ul>
         </div>
       </div>
     </div>
   </section>
 
-  <section>
+  <section id="how">
     <div class="wrap">
-      <p class="eyebrow">How it works</p>
-      <h2>One command. Then just ask.</h2>
+      <div class="center">
+        <p class="eyebrow">How it works</p>
+        <h2>One command. Then just ask.</h2>
+        <p class="sub">relay is a tiny local MCP server. <code style="font:15px var(--mono)">relay init</code> plugs it into every agent on your machine, so any of them can reach the others.</p>
+      </div>
+
+      <div class="diagram" aria-hidden="true">
+        <svg viewBox="0 0 760 300" fill="none">
+          <defs>
+            <linearGradient id="hubg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d97757"/><stop offset=".55" stop-color="#9b8cff"/><stop offset="1" stop-color="#7cc7ff"/></linearGradient>
+          </defs>
+          <path class="flow" d="M180 70 C 290 70, 300 150, 380 150" stroke="#d97757" stroke-width="1.5"/>
+          <path class="flow" d="M580 70 C 470 70, 460 150, 380 150" stroke="#7cc7ff" stroke-width="1.5"/>
+          <path class="flow" d="M180 230 C 290 230, 300 150, 380 150" stroke="#6b8bff" stroke-width="1.5"/>
+          <path class="flow" d="M580 230 C 470 230, 460 150, 380 150" stroke="#8c8c96" stroke-width="1.5"/>
+          <g font-family="Inter, sans-serif" font-size="15" font-weight="600" fill="#ededf0">
+            <rect x="40" y="46" width="140" height="48" rx="12" fill="#111114" stroke="#2e2e36"/><circle cx="62" cy="70" r="4" fill="#d97757"/><text x="74" y="75">Claude Code</text>
+            <rect x="580" y="46" width="140" height="48" rx="12" fill="#111114" stroke="#2e2e36"/><circle cx="602" cy="70" r="4" fill="#7cc7ff"/><text x="614" y="75">Codex</text>
+            <rect x="40" y="206" width="140" height="48" rx="12" fill="#111114" stroke="#2e2e36"/><circle cx="62" cy="230" r="4" fill="#6b8bff"/><text x="74" y="235">Gemini CLI</text>
+            <rect x="580" y="206" width="140" height="48" rx="12" fill="#111114" stroke="#2e2e36"/><circle cx="602" cy="230" r="4" fill="#8c8c96"/><text x="614" y="235">Cursor</text>
+          </g>
+          <rect x="318" y="118" width="124" height="64" rx="18" fill="#0b0b0e" stroke="url(#hubg)" stroke-width="1.5"/>
+          <text x="380" y="147" text-anchor="middle" font-family="Inter, sans-serif" font-size="18" font-weight="700" fill="#ededf0">relay</text>
+          <text x="380" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#8c8c96">~/.relay · local</text>
+        </svg>
+      </div>
+
       <div class="steps">
-        <div class="step">
-          <h3>Install</h3>
-          <p>relay finds every agent on your machine and connects them.</p>
-          <code>relay init</code>
+        <div class="stepc">
+          <div class="num">01</div>
+          <h3>Install once</h3>
+          <p>relay finds every agent on your machine and connects them. Config files are backed up first.</p>
+<div class="mini"><span class="d">$</span> relay init
+
+  <span class="g">✓</span> Claude Code
+  <span class="g">✓</span> Codex
+  <span class="g">✓</span> Cursor
+  <span class="d">–</span> Gemini CLI   <span class="d">not installed</span></div>
         </div>
-        <div class="step">
+        <div class="stepc">
+          <div class="num">02</div>
           <h3>Ask in plain words</h3>
-          <p>From inside any agent, name another one and say what you want.</p>
-          <code>"hand the tests to codex"</code>
+          <p>From inside any agent, name another one and say what you want. No commands to learn.</p>
+<div class="mini"><span class="d">&gt;</span> hand the tests to codex
+<span class="d">&gt;</span> ask claude why this is flaky
+<span class="d">&gt;</span> have codex review my changes
+<span class="d">&gt;</span> what did the other agents do?</div>
         </div>
-        <div class="step">
+        <div class="stepc">
+          <div class="num">03</div>
           <h3>Get the answer back</h3>
-          <p>The other agent works in the same repo and its reply lands in your conversation.</p>
-          <code>codex replied after 41s…</code>
+          <p>The other agent works in the same repo. Its reply comes straight back into your conversation.</p>
+<div class="mini"><span class="o">⏺</span> <span class="b">relay - review</span> <span class="d">(to: "codex")</span>
+  <span class="d">⎿</span>  codex replied after 41s:
+     1 issue in src/auth.ts:42
+<span class="o">⏺</span> Fixing it now…</div>
         </div>
       </div>
     </div>
@@ -261,68 +196,131 @@
 
   <section>
     <div class="wrap">
-      <p class="eyebrow">Why it works</p>
-      <h2>Built to disappear.</h2>
+      <div class="split">
+        <div>
+          <p class="eyebrow">No re-explaining</p>
+          <h2>The context travels with the task.</h2>
+          <p class="sub">The receiving agent gets a complete brief, built automatically from your repo and the shared history between agents.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Repo state:</b> branch, changed files, recent commits, and the full diff for reviews.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Shared history:</b> what every agent already did and decided in this project.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Memory:</b> follow-ups resume the same session, so the agent remembers.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Clear rules:</b> reviews and questions are read-only; handoffs may edit files.</span></li>
+          </ul>
+        </div>
+        <div class="doc">
+          <div class="titlebar"><span class="lights"><i></i><i></i><i></i></span><span class="title">what codex receives</span></div>
+<pre><span class="d">[relay]</span> claude is handing this to you (codex). Kind: review.
+Project: ~/app
+
+<span class="h">## Task</span>
+Review the current uncommitted changes in this project,
+focusing on: auth. List concrete issues most severe first
+(file:line, why it matters, suggested fix).
+
+<span class="h">## Repo state</span>
+Branch: <span class="k">feat/session-refresh</span>
+Changed files:
+ M src/auth.ts
+ M src/session.ts
+<span class="g">?? src/refresh.ts</span>
+Full diff:
+<span class="d">```diff</span>
+<span class="r">-  if (session.exp &lt; Date.now()) {</span>
+<span class="g">+  if (session.exp &lt; Date.now() / 1000) {</span>
+<span class="d">…</span>
+
+<span class="h">## Recent relay history in this project</span>
+14:02  codex → claude (handoff)
+  task: Add refresh-token rotation
+  reply: Done. Added rotateRefreshToken() in src/refresh.ts…
+
+<span class="h">## Rules</span>
+- Read-only: review the changes. Do not modify any files.
+- Your final message goes straight back to claude.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <p class="eyebrow">Why it works</p>
+        <h2>Built to disappear.</h2>
+        <p class="sub">No new app, no new account, no new bill. relay just connects what you already have.</p>
+      </div>
       <div class="features">
-        <div class="feature"><h3>Your existing logins</h3><p>relay runs the real CLIs, so there are no API keys and no extra bills.</p></div>
-        <div class="feature"><h3>Context attached</h3><p>Branch, changed files, the diff and recent history go along automatically.</p></div>
-        <div class="feature"><h3>Agents remember</h3><p>Follow-ups to the same agent continue its previous session.</p></div>
-        <div class="feature"><h3>Full-power agents</h3><p>The agent receiving the task keeps its own tools, sandbox and repo access.</p></div>
-        <div class="feature"><h3>No loops</h3><p>An agent started by relay can't hand work back again.</p></div>
-        <div class="feature"><h3>Tiny and local</h3><p>Zero dependencies. Everything stays on your machine in ~/.relay.</p></div>
+        <div class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.85 12.15 8.65-8.65M18 5l2 2M15 8l2 2"/></svg></div><h3>Your existing logins</h3><p>relay runs the real CLIs, so it uses your current subscriptions. No API keys, no extra bills.</p></div>
+        <div class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><h3>Full-power agents</h3><p>The agent receiving the task keeps its own tools, sandbox, rules and repo access.</p></div>
+        <div class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/></svg></div><h3>Agents remember</h3><p>Follow-ups to the same agent continue its previous session in that project.</p></div>
+        <div class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>No loops</h3><p>An agent started by relay can't hand work back again, so agents never ping-pong forever.</p></div>
+        <div class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Local only</h3><p>No server, no telemetry. The shared history lives in <span style="font-family:var(--mono);font-size:14px">~/.relay</span> on your machine.</p></div>
+        <div class="feature"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div><h3>Zero dependencies</h3><p>One small Node package. Installs in a second, nothing to keep updated.</p></div>
       </div>
       <div class="agents">
         <span class="agent"><i style="background:var(--claude)"></i>Claude Code</span>
         <span class="agent"><i style="background:var(--codex)"></i>Codex</span>
-        <span class="agent"><i style="background:#5b8def"></i>Gemini CLI</span>
+        <span class="agent"><i style="background:#6b8bff"></i>Gemini CLI</span>
         <span class="agent"><i style="background:var(--muted)"></i>Cursor</span>
-        <span class="agent"><i style="background:var(--accent)"></i>Any CLI agent</span>
+        <span class="agent"><i style="background:var(--accent)"></i>Any CLI agent <small>agents.json</small></span>
       </div>
     </div>
   </section>
 
-  <div class="wrap">
-    <div class="cta">
+  <section id="faq">
+    <div class="wrap narrow">
+      <div class="center">
+        <p class="eyebrow">FAQ</p>
+        <h2>Questions</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Does it cost anything?</summary>
+          <p>No. relay is free and open source, and it runs the agent CLIs you already pay for, with your existing logins. There are no API keys and no extra usage beyond the agent work itself.</p>
+        </details>
+        <details>
+          <summary>Is it safe to let one agent drive another?</summary>
+          <p>Each agent keeps its own permissions and sandbox. Reviews and questions are read-only. Handoffs can edit files in the project: Codex runs in its workspace-write sandbox and Claude Code in accept-edits mode. An agent started by relay can't start another one, so nothing loops.</p>
+        </details>
+        <details>
+          <summary>Where does my code go?</summary>
+          <p>Only to the agents you already use, the same way it would if you pasted it in yourself. relay has no server. The shared history is a local file in <code>~/.relay</code>.</p>
+        </details>
+        <details>
+          <summary>Which agents are supported?</summary>
+          <p>Claude Code, Codex, Gemini CLI and Cursor can all call relay and receive work (Cursor through <code>cursor-agent</code>). Any other CLI agent can receive work with one line in <code>~/.relay/agents.json</code>.</p>
+        </details>
+        <details>
+          <summary>How do I remove it?</summary>
+          <p>Run <code>relay uninstall</code>. It removes relay from every agent's config. The original config files are kept as <code>*.relay-backup</code>.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta">
+    <div class="wrap">
       <h2>Put the clipboard down.</h2>
-      <p class="sub">Free and open source. Set up in under a minute.</p>
-      <a class="btn" href="https://github.com/atilavahedian/relay">
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        Get relay on GitHub
-      </a>
+      <p class="sub">Set up in under a minute. Works with the agents you already have.</p>
+      <div class="install">
+        <div class="cmd">
+          <code><span class="prompt">$ </span><span class="k">npm</span> i -g github:atilavahedian/relay &amp;&amp; <span class="k">relay</span> init</code>
+          <button class="copy" type="button" data-copy="npm i -g github:atilavahedian/relay && relay init"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span></button>
+        </div>
+        <a class="btn" href="https://github.com/atilavahedian/relay">View on GitHub</a>
+      </div>
     </div>
   </div>
+</main>
 
-  <footer>
-    <div class="wrap">
-      <span>relay · MIT License</span>
-      <a href="https://github.com/atilavahedian/relay">github.com/atilavahedian/relay</a>
-    </div>
-  </footer>
+<footer>
+  <div class="wrap">
+    <span>relay · MIT License · not affiliated with Anthropic, OpenAI, Google or Cursor</span>
+    <a href="https://github.com/atilavahedian/relay">github.com/atilavahedian/relay</a>
+  </div>
+</footer>
 
-<script>
-  (function () {
-    var btn = document.getElementById('copy');
-    btn.addEventListener('click', function () {
-      var text = 'npm i -g github:atilavahedian/relay && relay init';
-      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1600); };
-      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, done); else done();
-    });
-
-    var lines = document.querySelectorAll('#term .line');
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || !('IntersectionObserver' in window)) {
-      lines.forEach(function (l) { l.classList.add('show'); });
-      return;
-    }
-    var delays = [0, 700, 300, 1400, 250, 250, 250, 900, 500];
-    var played = false;
-    new IntersectionObserver(function (entries, obs) {
-      if (played || !entries[0].isIntersecting) return;
-      played = true; obs.disconnect();
-      var t = 300;
-      lines.forEach(function (l, i) { t += delays[i] || 300; setTimeout(function () { l.classList.add('show'); }, t); });
-    }, { threshold: 0.3 }).observe(document.getElementById('term'));
-  })();
-</script>
+<script src="demo.js"></script>
 </body>
 </html>
