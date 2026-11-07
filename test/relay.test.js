@@ -168,11 +168,23 @@ test('init writes Codex, Gemini and Cursor configs and uninstall removes them', 
   assert.match(toml, /\[mcp_servers\.relay\]/);
   assert.ok(fs.existsSync(path.join(dir, '.codex', 'config.toml.relay-backup')));
   assert.ok(JSON.parse(fs.readFileSync(path.join(dir, '.cursor', 'mcp.json'), 'utf8')).mcpServers.relay);
+  const hooks = JSON.parse(fs.readFileSync(path.join(dir, '.codex', 'hooks.json'), 'utf8'));
+  assert.match(hooks.hooks.UserPromptSubmit[0].hooks[0].command, / hook codex$/);
 
   execFileSync(process.execPath, [bin, 'init'], { env }); // idempotent
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, '.codex', 'hooks.json'), 'utf8')).hooks.UserPromptSubmit.length, 1);
   assert.equal(fs.readFileSync(path.join(dir, '.codex', 'config.toml'), 'utf8').match(/\[mcp_servers\.relay\]/g).length, 1);
 
   execFileSync(process.execPath, [bin, 'uninstall'], { env });
   assert.ok(!fs.readFileSync(path.join(dir, '.codex', 'config.toml'), 'utf8').includes('mcp_servers.relay'));
   assert.ok(!JSON.parse(fs.readFileSync(path.join(dir, '.cursor', 'mcp.json'), 'utf8')).mcpServers.relay);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '.codex', 'hooks.json'), 'utf8')), {});
+});
+
+test('prompt hooks merge with existing user hooks and are removed cleanly', async () => {
+  const { addPromptHook, removePromptHook } = await import('../src/install.js');
+  const mine = { model: 'x', hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'my-own-hook.sh' }] }], Stop: [{ hooks: [{ type: 'command', command: 'say done' }] }] } };
+  const added = addPromptHook(addPromptHook(mine, 'claude'), 'claude');
+  assert.equal(added.hooks.UserPromptSubmit.length, 2, 'own hook kept, relay hook added once');
+  assert.deepEqual(removePromptHook(added), mine);
 });

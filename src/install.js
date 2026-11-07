@@ -84,6 +84,57 @@ const readText = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') 
 
 const claudeJson = () => path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir(), '.claude.json');
 
+
+// --- Prompt hooks: on every message you send in an open agent window, relay adds what the
+// other agents did since your last message (finished background jobs, handoffs, notes).
+export function hookCommand(agent) {
+  const script = fs.realpathSync(process.argv[1]);
+  return `${JSON.stringify(process.execPath)} ${JSON.stringify(script)} hook ${agent}`;
+}
+
+const isRelayHook = (h) => typeof h?.command === 'string' && / hook (claude|codex)$/.test(h.command) && h.command.includes('relay');
+
+// Works for both Claude Code settings.json and Codex hooks.json (same shape).
+export function addPromptHook(config, agent) {
+  const cleaned = removePromptHook(config);
+  cleaned.hooks = cleaned.hooks || {};
+  const list = cleaned.hooks.UserPromptSubmit || [];
+  list.push({ hooks: [{ type: 'command', command: hookCommand(agent), timeout: 10 }] });
+  cleaned.hooks.UserPromptSubmit = list;
+  return cleaned;
+}
+
+export function removePromptHook(config) {
+  const out = { ...config };
+  const list = out.hooks?.UserPromptSubmit;
+  if (!Array.isArray(list)) return out;
+  const kept = list
+    .map((group) => ({ ...group, hooks: (group.hooks || []).filter((h) => !isRelayHook(h)) }))
+    .filter((group) => group.hooks.length);
+  out.hooks = { ...out.hooks, UserPromptSubmit: kept };
+  if (!kept.length) delete out.hooks.UserPromptSubmit;
+  if (!Object.keys(out.hooks).length) delete out.hooks;
+  return out;
+}
+
+const hasPromptHook = (config) => (config.hooks?.UserPromptSubmit || []).some((g) => (g.hooks || []).some(isRelayHook));
+
+function hookFile(file, agent, note) {
+  return {
+    note,
+    status: () => hasPromptHook(readJson(file())),
+    install: () => writeJson(file(), addPromptHook(readJson(file()), agent)),
+    uninstall() {
+      if (!fs.existsSync(file())) return;
+      const config = readJson(file());
+      if (hasPromptHook(config)) writeJson(file(), removePromptHook(config));
+    },
+  };
+}
+
+const claudeSettings = () => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'settings.json');
+const codexHooks = () => path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'hooks.json');
+
 export const TARGETS = [
   {
     id: 'claude',
@@ -103,6 +154,7 @@ export const TARGETS = [
         execFileSync(which('claude'), ['mcp', 'remove', '-s', 'user', 'relay'], { stdio: 'ignore' });
       } catch {}
     },
+    hooks: hookFile(claudeSettings, 'claude', 'live sync on'),
   },
   {
     id: 'codex',
@@ -121,6 +173,8 @@ export const TARGETS = [
       if (!this.status()) return;
       fs.writeFileSync(file, removeTomlServer(readText(file)).replace(/\s*$/, '') + '\n');
     },
+    // Codex runs a new hook only after you trust it once.
+    hooks: hookFile(codexHooks, 'codex', 'live sync: in Codex, run /hooks once and trust the relay hook'),
   },
   {
     id: 'gemini',
@@ -145,7 +199,16 @@ export function init() {
     }
     try {
       target.install(serverCommand(target.id));
-      results.push({ target, state: 'connected' });
+      let extras = '';
+      if (target.hooks && process.env.RELAY_NO_HOOKS !== '1') {
+        try {
+          target.hooks.install();
+          extras = target.hooks.note;
+        } catch (err) {
+          extras = `live sync not installed: ${err.message.split('\n')[0]}`;
+        }
+      }
+      results.push({ target, state: 'connected', extras });
     } catch (err) {
       results.push({ target, state: 'error', error: err.message.split('\n')[0] });
     }
@@ -157,6 +220,7 @@ export function uninstall() {
   return TARGETS.map((target) => {
     try {
       target.uninstall();
+      target.hooks?.uninstall();
       return { target, state: 'removed' };
     } catch (err) {
       return { target, state: 'error', error: err.message };
@@ -167,9 +231,12 @@ export function uninstall() {
 export function status() {
   return TARGETS.map((target) => {
     let connected = false;
+    let synced = false;
     try {
       connected = target.status();
+      synced = Boolean(target.hooks?.status());
     } catch {}
-    return { target, found: Boolean(target.detect()), connected };
+    const extras = target.hooks ? (synced ? 'live sync on' : 'live sync off: run `relay init`') : '';
+    return { target, found: Boolean(target.detect()), connected, extras };
   });
 }
