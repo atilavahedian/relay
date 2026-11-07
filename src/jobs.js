@@ -164,7 +164,7 @@ export async function runWorker(id) {
       onLog: log,
       onSession: (s) => update(id, { agentSession: s }),
     });
-    if (res.session && job.kind !== 'review') setSession(job.root, job.to, res.session);
+    if (res.session && job.kind !== 'review') setSession(job.root, job.to, res.session, { readOnly: Boolean(job.readOnly) });
     // history first, then status, so anyone waiting on the status also sees the history entry
     append(job.root, { from: job.from, to: job.to, kind: job.kind, task: clip(job.task, 4000), result: clip(res.text, 8000), session: res.session, ms: res.ms, job: id });
     update(id, { status: 'done', endedAt: new Date().toISOString(), ms: res.ms, result: res.text, agentSession: res.session || load(id)?.agentSession });

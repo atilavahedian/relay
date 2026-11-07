@@ -159,11 +159,16 @@ export function createTools(self = 'agent') {
     }
     if (!task) throw new Error(kind === 'ask' ? 'Missing "question".' : 'Missing "task".');
 
-    const session = args.fresh || kind === 'review' ? undefined : store.getSession(root, to);
+    const readOnly = kind !== 'handoff';
+    const saved = args.fresh || kind === 'review' ? undefined : store.getSessionInfo(root, to);
+    // Some agents (Cursor) keep a conversation's read-only/write mode for good: only resume a
+    // session whose mode matches, otherwise start a fresh one.
+    const modeMatches = !allAgents()[to].stickyMode || (typeof saved?.readOnly === 'boolean' && saved.readOnly === readOnly);
+    const session = saved && modeMatches ? saved.id : undefined;
     const conversation = args.conversation === false ? '' : conversationFor(self, cwd);
     const prompt = buildPrompt({ from: self, to, kind, task, context: args.context, conversation, cwd, root, history: store.read(root, 6) });
 
-    const job = jobs.start(jobs.create({ from: self, to, kind, task, prompt, cwd, root, readOnly: kind !== 'handoff', session }));
+    const job = jobs.start(jobs.create({ from: self, to, kind, task, prompt, cwd, root, readOnly, session }));
     const waitSec = args.background ? 0 : Number(args.wait ?? DEFAULT_WAIT_SEC);
     const done = await jobs.wait(job.id, {
       timeoutMs: Math.max(0, waitSec) * 1000,

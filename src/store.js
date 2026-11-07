@@ -74,14 +74,21 @@ function loadSessions() {
   }
 }
 
-export function getSession(root, agent) {
-  return loadSessions()[projectKey(root)]?.[agent];
+// Sessions are stored as { id, readOnly } (older versions stored just the id).
+export function getSessionInfo(root, agent) {
+  const v = loadSessions()[projectKey(root)]?.[agent];
+  if (!v) return undefined;
+  return typeof v === 'string' ? { id: v } : v;
 }
 
-export function setSession(root, agent, id) {
+export function getSession(root, agent) {
+  return getSessionInfo(root, agent)?.id;
+}
+
+export function setSession(root, agent, id, extra = {}) {
   const all = loadSessions();
   const key = projectKey(root);
-  all[key] = { ...all[key], [agent]: id };
+  all[key] = { ...all[key], [agent]: { id, ...extra } };
   writeAtomic(sessionsFile(), JSON.stringify(all, null, 2));
 }
 

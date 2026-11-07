@@ -294,6 +294,7 @@ const cursor = {
   // `agent` is the newer name, but other tools use it too: accept it only when it is Cursor's.
   altBins: ['agent'],
   verifyBin: (p) => /cursor/i.test(realpath(p)),
+  stickyMode: true, // a chat started with --mode ask stays read-only when resumed
   resumeCommand: (id) => `cursor-agent --resume ${id}`,
   auth: { args: ['status'], ok: (out, code) => code === 0 && !/not logged in/i.test(out), fix: 'cursor-agent login' },
   args({ readOnly, session }) {
@@ -301,7 +302,11 @@ const cursor = {
     const args = ['-p', '--output-format', 'stream-json', '--trust'];
     if (session) args.push('--resume', session);
     if (readOnly) args.push('--mode', 'ask');
-    else args.push('--force');
+    else {
+      args.push('--force');
+      // Cursor's sandbox keeps forced commands inside the workspace (macOS/Linux)
+      if (process.platform !== 'win32') args.push('--sandbox', 'enabled');
+    }
     args.push(PROMPT);
     return args;
   },
@@ -339,7 +344,11 @@ const cursor = {
       }
       return { text: stdout.trim() };
     }
-    return { text: st.final ?? st.texts.join('\n\n').trim(), session: st.session };
+    // result.result glues every progress message together. When it ends with the last streamed
+    // segment, that segment is the actual answer; otherwise trust result.result.
+    const last = st.texts.at(-1)?.trim();
+    const text = st.final && last && st.final.trim().endsWith(last) ? last : (st.final ?? last ?? '');
+    return { text, session: st.session };
   },
   parse(out) {
     const json = lastJson(out);
@@ -368,6 +377,7 @@ function customAgents() {
       label: def.label || name,
       bin: def.command[0],
       custom: true,
+      stickyMode: Boolean(def.stickyMode),
       args({ readOnly }) {
         const cmd = readOnly && Array.isArray(def.readOnlyCommand) ? def.readOnlyCommand : def.command;
         return cmd.slice(1);

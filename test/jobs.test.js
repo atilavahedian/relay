@@ -200,3 +200,39 @@ test('Cursor stream-json (documented schema) and flags', async () => {
   assert.ok(c.args({ readOnly: true }).join(' ').includes('--trust --mode ask'));
   assert.ok(c.args({ readOnly: false }).includes('--force'));
 });
+
+test('sticky-mode agents only resume a session saved in the same mode', async () => {
+  const { project } = setup();
+  const agentsFile = path.join(process.env.RELAY_HOME, 'agents.json');
+  const def = JSON.parse(fs.readFileSync(agentsFile, 'utf8'));
+  def.slow.stickyMode = true;
+  fs.writeFileSync(agentsFile, JSON.stringify(def));
+  const { tools, store, jobs } = await load();
+  const { projectRoot } = await import('../src/context.js');
+  const root = projectRoot(project);
+  const { callTool } = tools.createTools('claude');
+  const cases = [
+    [{}, 'handoff', undefined], // saved before modes were recorded: unknown, start fresh
+    [{ readOnly: true }, 'handoff', undefined],
+    [{ readOnly: false }, 'handoff', 's1'],
+    [{ readOnly: true }, 'ask', 's1'],
+  ];
+  for (const [mode, kind, expected] of cases) {
+    store.setSession(root, 'slow', 's1', mode);
+    const reply = await callTool(kind, { to: 'slow', task: 't', question: 'q', cwd: project, background: true });
+    const job = jobs.load(/job ([0-9a-f]{6})/.exec(reply)[1]);
+    assert.equal(job.session, expected, `${JSON.stringify(mode)} → ${kind}`);
+    await jobs.wait(job.id, { timeoutMs: 10000 });
+  }
+});
+
+test('Cursor final answer is the last message segment, not every progress line glued together', async () => {
+  const { BUILTIN } = await import('../src/agents.js');
+  const st = { texts: [] };
+  for (const e of [
+    { type: 'assistant', message: { content: [{ type: 'text', text: "I'll fix it." }] } },
+    { type: 'assistant', message: { content: [{ type: 'text', text: 'Fixed. Tests pass.' }] } },
+    { type: 'result', is_error: false, result: "I'll fix it.Fixed. Tests pass.", session_id: 'c' },
+  ]) BUILTIN.cursor.onLine(JSON.stringify(e), st, () => {});
+  assert.equal(BUILTIN.cursor.finish(st, '').text, 'Fixed. Tests pass.');
+});
