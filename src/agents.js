@@ -125,7 +125,8 @@ const claude = {
     } else if (ev.type === 'user') {
       for (const block of ev.message?.content || []) {
         if (block.type !== 'tool_result') continue;
-        const text = Array.isArray(block.content) ? block.content.map((c) => c.text || '').join(' ') : block.content;
+        let text = Array.isArray(block.content) ? block.content.map((c) => c.text || '').join(' ') : String(block.content ?? '');
+        if (st.cwd) text = text.split(`${st.cwd}/`).join('');
         log(`  ⎿  ${block.is_error ? 'error: ' : ''}${short(text, 160)}`);
       }
     } else if (ev.type === 'result') {
@@ -217,6 +218,7 @@ const gemini = {
   label: 'Gemini CLI',
   bin: 'gemini',
   resumeCommand: (id) => `gemini --resume ${id}`,
+  signIn: 'gemini',
   args({ readOnly, session }) {
     const args = ['--output-format', 'stream-json', '--skip-trust'];
     if (readOnly) args.push('--approval-mode', 'default');
@@ -293,6 +295,7 @@ const cursor = {
   altBins: ['agent'],
   verifyBin: (p) => /cursor/i.test(realpath(p)),
   resumeCommand: (id) => `cursor-agent --resume ${id}`,
+  auth: { args: ['status'], ok: (out, code) => code === 0 && !/not logged in/i.test(out), fix: 'cursor-agent login' },
   args({ readOnly, session }) {
     // --trust: headless runs in a not-yet-trusted folder fail without it (Cursor CLI, Jan 2026)
     const args = ['-p', '--output-format', 'stream-json', '--trust'];
@@ -555,8 +558,8 @@ export async function run(name, prompt, opts = {}) {
       return await spawnOnce(name, agent, prompt, { ...settings, session: undefined });
     }
   } catch (err) {
-    if (/authenticat|log ?in|credential|unauthori[sz]ed|api key/i.test(err.message)) {
-      err.message += `\nRun \`${agent.bin}\` once in a terminal to sign in, then try again.`;
+    if (/authenticat|log ?in|credential|unauthori[sz]ed|api[ _]key|auth method/i.test(err.message)) {
+      err.message += `\nSign in first: run \`${agent.auth?.fix || agent.signIn || agent.bin}\` in a terminal, then try again.`;
     }
     throw err;
   }
