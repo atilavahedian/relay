@@ -22,8 +22,9 @@ export function projectRoot(cwd) {
 }
 
 export function repoState(cwd, { fullDiff = false } = {}) {
-  const branch = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
-  if (!branch) return '';
+  if (git(cwd, ['rev-parse', '--is-inside-work-tree']) !== 'true') return '';
+  // symbolic-ref also works in a brand-new repo with no commits yet
+  const branch = git(cwd, ['symbolic-ref', '--short', 'HEAD']) || git(cwd, ['rev-parse', '--short', 'HEAD']) || 'detached';
   const parts = [`Branch: ${branch}`];
   const status = git(cwd, ['status', '--short'], 4000);
   if (status) parts.push(`Changed files:\n${status}`);
