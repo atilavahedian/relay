@@ -1,6 +1,6 @@
 // Adapters: how to run each agent CLI headlessly, stream what it is doing, and read its answer.
 // Relay drives the real CLIs, so it uses your existing logins and subscriptions.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -90,6 +90,7 @@ const claude = {
   label: 'Claude Code',
   bin: 'claude',
   resumeCommand: (id) => `claude --resume ${id}`,
+  auth: { args: ['auth', 'status'], ok: (out) => /"loggedIn":\s*true/.test(out), fix: 'claude auth login' },
   args({ readOnly, session, newSessionId }) {
     const args = ['-p', '--output-format', 'stream-json', '--verbose'];
     if (session) args.push('--resume', session);
@@ -141,7 +142,8 @@ const claude = {
         return { text: json.result ?? '', session: json.session_id || st.session };
       }
     }
-    if (st.error && !st.texts.length) throw new Error(st.error);
+    // a failed run (e.g. signed out) still ends with result/success + is_error, so trust is_error
+    if (st.error) throw new Error(st.error);
     return { text: st.final ?? st.texts.at(-1) ?? '', session: st.session };
   },
   // kept for tests and the non-streaming fallback
@@ -159,6 +161,7 @@ const codex = {
   label: 'Codex',
   bin: 'codex',
   resumeCommand: (id) => `codex resume ${id}`,
+  auth: { args: ['login', 'status'], ok: (out, code) => code === 0 && !/not logged in/i.test(out), fix: 'codex login' },
   args({ readOnly, session }) {
     const opts = ['--json', '--skip-git-repo-check', '-c', `sandbox_mode="${readOnly ? 'read-only' : 'workspace-write'}"`];
     // Tell the child's own relay server it is nested, so it cannot hand work back in a loop.
@@ -228,7 +231,10 @@ const gemini = {
 const cursor = {
   label: 'Cursor Agent',
   bin: 'cursor-agent',
+  // Newer installs also expose `agent`, but other tools use that name too: accept it only
+  // when it really is Cursor's binary.
   altBins: ['agent'],
+  verifyBin: (p) => /cursor/i.test(realpath(p)),
   resumeCommand: (id) => `cursor-agent --resume ${id}`,
   args({ readOnly, session }) {
     const args = ['-p', '--output-format', 'stream-json'];
@@ -349,12 +355,35 @@ export function which(bin) {
   return null;
 }
 
+const realpath = (p) => {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+
 export function binFor(agent) {
-  for (const bin of [agent.bin, ...(agent.altBins || [])]) {
+  const primary = which(agent.bin);
+  if (primary) return primary;
+  for (const bin of agent.altBins || []) {
     const found = which(bin);
-    if (found) return found;
+    if (found && (!agent.verifyBin || agent.verifyBin(found))) return found;
   }
   return null;
+}
+
+// true / false, or null when the CLI has no cheap way to tell
+export function signedIn(agent) {
+  if (!agent.auth) return null;
+  const bin = binFor(agent);
+  if (!bin) return false;
+  try {
+    const r = spawnSync(bin, agent.auth.args, { encoding: 'utf8', timeout: 15000, env: { ...process.env, PATH: searchPath() } });
+    return agent.auth.ok(`${r.stdout}${r.stderr}`, r.status);
+  } catch {
+    return null;
+  }
 }
 
 export function available() {

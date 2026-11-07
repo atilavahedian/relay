@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import { allAgents, binFor, which } from './agents.js';
+import { allAgents, binFor, signedIn, which } from './agents.js';
 import { projectRoot } from './context.js';
 import { claudeHook, catchUp } from './hooks.js';
 import * as install from './install.js';
@@ -219,7 +219,14 @@ export async function main(argv) {
       console.log('\nCan hand work to:');
       for (const [name, agent] of Object.entries(allAgents())) {
         const bin = binFor(agent);
-        console.log(`  ${bin ? green('✓') : dim('–')} ${name.padEnd(12)} ${bin ? dim(bin) : dim(`no "${agent.bin}" on PATH`)}`);
+        if (!bin) {
+          console.log(`  ${dim('–')} ${name.padEnd(12)} ${dim(`no "${agent.bin}" on PATH`)}`);
+          continue;
+        }
+        const auth = signedIn(agent);
+        const mark = auth === false ? red('✗') : green('✓');
+        const note = auth === false ? red(`signed out: run \`${agent.auth.fix}\``) : dim(bin);
+        console.log(`  ${mark} ${name.padEnd(12)} ${note}`);
       }
       return;
     }

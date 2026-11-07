@@ -141,6 +141,14 @@ test('Claude stream-json adapter: live log lines, final result, session id', asy
   assert.deepEqual(logs, ['⏺ Bash(npm test)', '  ⎿  18 passed', '⏺ All 18 tests pass.']);
   assert.deepEqual(BUILTIN.claude.finish(st, ''), { text: 'All 18 tests pass.', session: 'sess-1' });
 
+  // signed-out runs report is_error on a "success" result: must surface as an error
+  const bad = { texts: [] };
+  for (const e of [
+    { type: 'assistant', message: { content: [{ type: 'text', text: 'Failed to authenticate' }] } },
+    { type: 'result', subtype: 'success', is_error: true, result: 'Failed to authenticate: OAuth session expired' },
+  ]) BUILTIN.claude.onLine(JSON.stringify(e), bad, () => {});
+  assert.throws(() => BUILTIN.claude.finish(bad, ''), /OAuth session expired/);
+
   const args = BUILTIN.claude.args({ readOnly: false, newSessionId: 'u-1' });
   assert.ok(args.includes('--session-id') && args.includes('u-1'));
   if (process.platform !== 'win32') assert.match(args[args.indexOf('--settings') + 1], /"autoAllowBashIfSandboxed":true/);
