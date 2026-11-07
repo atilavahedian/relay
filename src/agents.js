@@ -250,10 +250,17 @@ export async function run(name, prompt, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? Number(process.env.RELAY_TIMEOUT_MIN || 30) * 60000;
   const settings = { ...opts, timeoutMs };
   try {
-    return await spawnOnce(agent, prompt, settings);
+    try {
+      return await spawnOnce(agent, prompt, settings);
+    } catch (err) {
+      if (!opts.session || err.timedOut) throw err;
+      // The saved session may be gone (deleted, other machine). Start fresh once.
+      return await spawnOnce(agent, prompt, { ...settings, session: undefined });
+    }
   } catch (err) {
-    if (!opts.session || err.timedOut) throw err;
-    // The saved session may be gone (deleted, other machine). Start fresh once.
-    return spawnOnce(agent, prompt, { ...settings, session: undefined });
+    if (/authenticat|log ?in|credential|unauthori[sz]ed|api key/i.test(err.message)) {
+      err.message += `\nRun \`${agent.bin}\` once in a terminal to sign in, then try again.`;
+    }
+    throw err;
   }
 }
