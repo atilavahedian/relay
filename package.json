@@ -1,6 +1,6 @@
 {
   "name": "relay-agents",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stop copy-pasting between coding agents. Claude Code, Codex, Gemini and Cursor hand work to each other directly.",
   "type": "module",
   "bin": {

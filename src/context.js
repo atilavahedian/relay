@@ -47,6 +47,9 @@ export function repoState(cwd, { fullDiff = false } = {}) {
   return parts.join('\n\n');
 }
 
+const DISAGREE =
+  'If you think the requested change or approach is wrong, say so explicitly in a section titled "Disagreements" ' +
+  '(what you disagree with, why, and what you would do instead). Never silently do something different from what was asked.';
 const RULES = {
   handoff: 'You may read and edit files in this project to complete the task.',
   ask: 'Read-only: answer the question. Do not modify any files.',
@@ -67,7 +70,7 @@ export function buildPrompt({ from, to, kind, task, context, conversation, cwd, 
   if (state) sections.push(`## Repo state\n${state}`);
   if (history.length) sections.push(`## Recent relay history in this project\n${formatThread(history, { max: 600 })}`);
   sections.push(
-    `## Rules\n- ${RULES[kind]}\n- Your final message goes straight back to ${from}. End with a short summary: what you did or found, files changed, and anything left open.`,
+    `## Rules\n- ${RULES[kind]}\n- ${kind === 'handoff' ? DISAGREE : 'Label each finding [must-fix], [should-fix] or [nit]. ' + DISAGREE}\n- Your final message goes straight back to ${from}. End with a short summary: what you did or found, files changed, and anything left open.`,
   );
   return sections.join('\n\n');
 }

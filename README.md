@@ -49,6 +49,7 @@ Your open agent windows stay in sync: each message you send includes what the ot
 
 - **Your existing logins.** relay runs the real CLIs, so there are no API keys and no extra bills.
 - **Full-power, still safe.** Each agent keeps its own tools and sandbox. Claude runs commands inside its OS sandbox; Codex in `workspace-write`. Asks and reviews are read-only.
+- **No silent overrules.** Reviews are read-only and labeled by severity. If one agent disagrees with the other, the disagreement comes to you to decide.
 - **No loops.** An agent started by relay can't hand work on again.
 - **Local and tiny.** Zero dependencies. Everything stays in `~/.relay`.
 

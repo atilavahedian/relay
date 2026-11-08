@@ -9,7 +9,7 @@ export const INSTRUCTIONS =
   'relay connects you to the other coding agents on this machine (Claude Code, Codex, Gemini CLI, Cursor). ' +
   'Use `handoff` to delegate work, `ask` for a second opinion, and `review` to get the current changes reviewed by another agent. ' +
   'The task, repo state, your recent conversation with the user and the shared relay history are attached automatically, ' +
-  'so never ask the user to copy-paste between agents. For long tasks pass background: true and keep working; ' +
+  'so never ask the user to copy-paste between agents. When another agent disagrees with you, surface it to the user instead of quietly overruling it. For long tasks pass background: true and keep working; ' +
   'results come back in later relay replies or via `status`. Use `thread` to see what other agents did here, and `note` to leave a decision for them.';
 
 const KINDS = ['handoff', 'ask', 'review'];
@@ -25,7 +25,18 @@ export function describeResult(job) {
   if (job.status === 'failed') return `${job.to} failed (job ${job.id}): ${job.error}`;
   const hint = jobs.resumeHint(job);
   const footer = [`job ${job.id}`, hint && `continue it yourself: \`${hint}\`${job.cwd ? ` in ${job.cwd}` : ''}`].filter(Boolean).join(' · ');
-  return `${job.to} replied after ${fmtDuration(job.ms || 0)}:\n\n${job.result || '(empty reply)'}\n\n— ${footer}`;
+  return `${job.to} replied after ${fmtDuration(job.ms || 0)}:\n\n${job.result || '(empty reply)'}\n\n— ${footer}\n\n${disagreementRule(job)}`;
+}
+
+// One agent must never quietly overrule the other: agreement can be acted on,
+// disagreement goes to the user.
+export function disagreementRule(job) {
+  const what = job.kind === 'handoff' ? `${job.to}'s work` : `${job.to}'s ${job.kind === 'review' ? 'review' : 'answer'}`;
+  return (
+    `[relay] ${what} is input, not a decision. Act on the points you agree with. ` +
+    `If you disagree with any point, or won't act on it, do not drop it silently: tell the user what ${job.to} said, ` +
+    `why you disagree, and let them decide. Then record the outcome with the relay note tool.`
+  );
 }
 
 function describeRunning(job) {

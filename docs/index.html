@@ -330,6 +330,10 @@ Added `sub(a, b)` to calc.py and tests in test_calc.py.
           <p>Each agent keeps its own permissions and sandbox. Reviews and questions are read-only. Handoffs can edit files and run commands inside the project: Codex in its workspace-write sandbox, Claude Code inside its OS sandbox (writes limited to the project, network limited to package registries). An agent started by relay can't start another one, so nothing loops.</p>
         </details>
         <details>
+          <summary>What if the agents disagree?</summary>
+          <p>Neither one can quietly overrule the other. Reviews are read-only, and each finding is labeled must-fix, should-fix or nit. The reviewer lists any disagreement explicitly, and the agent you're talking to must bring it to you instead of dropping it, so you make the call. Every exchange stays in <code>relay thread</code>.</p>
+        </details>
+        <details>
           <summary>Where does my code go?</summary>
           <p>Only to the agents you already use, the same way it would if you pasted it in yourself. relay has no server. The shared history is a local file in <code>~/.relay</code>.</p>
         </details>

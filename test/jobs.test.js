@@ -243,3 +243,16 @@ test('errorSummary picks the explaining line out of stack traces and JSON noise'
   assert.equal(errorSummary(noisy), 'An unexpected critical error occurred:IneligibleTierError: This client is no longer supported');
   assert.equal(errorSummary('just one line'), 'just one line');
 });
+
+test('disagreements are surfaced, never silently resolved', async () => {
+  const { project } = setup();
+  const { tools, jobs } = await load();
+  const reply = await tools.createTools('claude').callTool('review', { to: 'slow', cwd: project });
+  assert.match(reply, /is input, not a decision/);
+  assert.match(reply, /do not drop it silently: tell the user what slow said/);
+  const job = jobs.list({ limit: 1 })[0];
+  assert.match(job.prompt, /Label each finding \[must-fix\]/);
+  assert.match(job.prompt, /section titled "Disagreements"/);
+  const handoff = await tools.createTools('claude').callTool('handoff', { to: 'slow', task: 'x', cwd: project });
+  assert.match(handoff, /slow's work is input, not a decision/);
+});
