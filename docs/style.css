@@ -194,26 +194,42 @@ h1 .grad {
 .rule { display: flex; align-items: center; gap: 10px; color: var(--dim); }
 .rule::before, .rule::after { content: ""; flex: 1; height: 1px; background: var(--border-2); }
 
-/* the relay channel between the windows */
-.channel { position: relative; height: 72px; display: grid; place-items: center; }
-@media (min-width: 960px) { .channel { height: auto; } }
-.channel .rail { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: linear-gradient(var(--border-2), var(--border-2)); transform: translateX(-50%); }
-@media (min-width: 960px) { .channel .rail { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 1px; transform: translateY(-50%); } }
+/* the relay channel between the windows: you can watch work travel through relay */
+.channel { position: relative; height: 104px; display: grid; place-items: center; }
+@media (min-width: 960px) { .channel { height: auto; } .stage { grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr) !important; } }
+.channel .rail { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--border); overflow: hidden; border-radius: 2px; }
+@media (min-width: 960px) { .channel .rail { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 2px; transform: translateY(-50%); } }
+.flow { position: absolute; inset: 0; opacity: 0; transition: opacity .25s ease; background-size: 100% 18px; }
+@media (min-width: 960px) { .flow { background-size: 18px 100%; } }
+.channel.to-codex .flow { opacity: 1; background-image: repeating-linear-gradient(180deg, transparent 0 8px, var(--codex) 8px 13px, transparent 13px 18px); animation: flowY 0.5s linear infinite; }
+.channel.to-claude .flow { opacity: 1; background-image: repeating-linear-gradient(180deg, transparent 0 8px, var(--claude) 8px 13px, transparent 13px 18px); animation: flowY 0.5s linear infinite reverse; }
+@media (min-width: 960px) {
+  .channel.to-codex .flow { background-image: repeating-linear-gradient(90deg, transparent 0 8px, var(--codex) 8px 13px, transparent 13px 18px); animation-name: flowX; }
+  .channel.to-claude .flow { background-image: repeating-linear-gradient(90deg, transparent 0 8px, var(--claude) 8px 13px, transparent 13px 18px); animation-name: flowX; }
+}
+@keyframes flowX { to { background-position: 18px 0; } }
+@keyframes flowY { to { background-position: 0 18px; } }
 .hub {
-  position: relative; z-index: 2; font: 600 11px var(--mono); letter-spacing: .04em; color: var(--text);
-  padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--surface);
-  display: inline-flex; align-items: center; gap: 6px; transition: box-shadow .3s ease, border-color .3s ease;
+  position: relative; z-index: 2; font: 600 12px var(--mono); letter-spacing: .04em; color: var(--text);
+  padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--surface);
+  display: inline-flex; align-items: center; gap: 7px; transition: box-shadow .3s ease, border-color .3s ease, transform .3s ease;
 }
-.hub i { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); display: block; transition: background .3s ease; }
-.hub.live { border-color: var(--accent); box-shadow: 0 0 24px rgba(155,140,255,.45); }
-.hub.live i { background: var(--accent); }
-.packet {
-  position: absolute; z-index: 3; left: 50%; top: 0; transform: translate(-50%, -50%); opacity: 0;
-  font: 500 10.5px var(--mono); white-space: nowrap; color: #0a0a0c; background: var(--accent); padding: 3px 8px; border-radius: 999px;
-  box-shadow: 0 0 20px rgba(155,140,255,.7);
-}
-.packet.to-codex { background: var(--codex); box-shadow: 0 0 20px rgba(124,199,255,.6); }
-.packet.to-claude { background: var(--claude); box-shadow: 0 0 20px rgba(217,119,87,.6); }
+.hub i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); display: block; transition: background .3s ease; }
+.channel.to-codex .hub, .channel.to-claude .hub { border-color: var(--accent); box-shadow: 0 0 28px rgba(155,140,255,.5); transform: scale(1.06); }
+.channel.to-codex .hub i, .channel.to-claude .hub i { background: var(--accent); animation: blink .5s steps(1) infinite; }
+.ring { position: absolute; left: 50%; top: 50%; width: 76px; height: 30px; border-radius: 999px; border: 2px solid var(--accent); transform: translate(-50%, -50%); opacity: 0; pointer-events: none; z-index: 1; }
+.ring.go { animation: ripple .75s ease-out; }
+@keyframes ripple { from { opacity: .8; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) scale(2.3); } }
+.packet { position: absolute; z-index: 1; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); opacity: 0; pointer-events: none; }
+.packet.to-codex { background: var(--codex); box-shadow: 0 0 18px 5px rgba(124,199,255,.65); }
+.packet.to-claude { background: var(--claude); box-shadow: 0 0 18px 5px rgba(217,119,87,.65); }
+.cargo { position: absolute; z-index: 2; left: calc(50% + 58px); top: 50%; transform: translateY(-50%); font: 500 10.5px/1.35 var(--mono); white-space: nowrap; opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+@media (min-width: 960px) { .cargo { left: 50%; top: calc(50% + 26px); transform: translateX(-50%); width: 124px; white-space: normal; text-align: center; } }
+.channel.to-codex .cargo { opacity: 1; color: var(--codex); }
+.channel.to-claude .cargo { opacity: 1; color: var(--claude); }
+.win.sending.claude { box-shadow: 0 0 0 1px rgba(217,119,87,.35), 0 0 60px -10px rgba(217,119,87,.55); }
+.win.sending.codex { box-shadow: 0 0 0 1px rgba(124,199,255,.35), 0 0 60px -10px rgba(124,199,255,.5); }
+@media (prefers-reduced-motion: reduce) { .flow, .ring.go, .hub i { animation: none !important; } }
 
 .caption { text-align: center; color: var(--muted); font-size: 15px; min-height: 26px; margin-top: 18px; transition: opacity .25s ease; }
 .caption b { color: var(--text); font-weight: 600; }
@@ -324,7 +340,7 @@ footer a:hover { color: var(--text); }
   .screen { padding: 12px 12px 8px; font-size: 11.5px; }
   .cx-hint span:last-child, .cc-hint span:first-child { display: none; }
   .cc-welcome, .cx-header { margin-bottom: 10px; }
-  .channel { height: 60px; }
+  .channel { height: 88px; }
   .caption { font-size: 14px; }
   section { padding: 64px 0; }
 }

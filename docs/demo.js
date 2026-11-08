@@ -27,6 +27,9 @@
   if (!W.claude.el) return;
   var hub = $('#hub');
   var packet = $('#packet');
+  var ring = $('#ring');
+  var cargo = $('#cargo');
+  var channel = packet.parentNode;
   var caption = $('#caption');
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
 
@@ -101,24 +104,41 @@
           },
         };
       },
+      // Work visibly travels through relay: the rail streams toward the receiver, a glowing
+      // packet rides it, relay pulses as it passes through, and the sender/receiver light up.
       send: function (to, label) {
         check();
-        packet.textContent = label;
+        var from = to === 'codex' ? 'claude' : 'codex';
+        cargo.textContent = label;
         packet.className = 'packet ' + (to === 'codex' ? 'to-codex' : 'to-claude');
-        hub.classList.add('live');
+        channel.classList.remove('to-codex', 'to-claude');
+        channel.classList.add(to === 'codex' ? 'to-codex' : 'to-claude');
+        W[from].el.classList.add('sending');
         var horizontal = window.matchMedia('(min-width: 960px)').matches;
-        var from = to === 'codex' ? 0 : 100;
-        var dest = 100 - from;
+        var start = to === 'codex' ? -4 : 104;
+        end = to === 'codex' ? 104 : -4;
         var at = function (p, o) {
           return horizontal ? { left: p + '%', top: '50%', opacity: o } : { top: p + '%', left: '50%', opacity: o };
         };
         if (packet.animate && !reduce) {
           packet.animate(
-            [at(from, 0), at(from + (dest - from) * 0.12, 1), at(from + (dest - from) * 0.88, 1), at(dest, 0)],
-            { duration: 1150, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' },
+            [at(start, 0), at(start + (end - start) * 0.1, 1), at(start + (end - start) * 0.9, 1), at(end, 0)],
+            { duration: 1400, easing: 'cubic-bezier(.45,0,.35,1)', fill: 'forwards' },
           );
         }
-        return wait(1200).then(function () { hub.classList.remove('live'); });
+        return wait(620)
+          .then(function () {
+            ring.classList.remove('go');
+            void ring.offsetWidth;
+            ring.classList.add('go');
+            W[from].el.classList.remove('sending');
+            W[to].el.classList.add('sending');
+            return wait(900);
+          })
+          .then(function () {
+            W[to].el.classList.remove('sending');
+            channel.classList.remove('to-codex', 'to-claude');
+          });
       },
       caption: function (n, html) {
         check();
@@ -150,7 +170,9 @@
     W.codex.input.textContent = '';
     W.claude.el.classList.remove('active', 'idle');
     W.codex.el.classList.remove('active', 'idle');
-    hub.classList.remove('live');
+    channel.classList.remove('to-codex', 'to-claude');
+    W.claude.el.classList.remove('sending');
+    W.codex.el.classList.remove('sending');
     caption.innerHTML = '&nbsp;';
   }
 
@@ -184,7 +206,7 @@
       var tool = a.line('claude', cc.tool('relay - review', ' (MCP)(to: "codex", focus: "auth")', true), 'gap');
       var wait1 = a.spin('claude', 'Relaying', 5);
       a.caption(2, 'relay sends <b>Codex</b> the task, the diff and the history. Nothing to paste.');
-      await a.send('codex', 'task · diff · history');
+      await a.send('codex', 'task · diff · chat');
 
       a.focus('codex');
       a.line('codex', cx.you('[relay] claude: review the uncommitted changes in ~/app (focus: auth)'));
@@ -293,7 +315,7 @@
       var tool = a.line('claude', cc.tool('relay - ask', ' (MCP)(to: "codex", question: "Is migrations/0042_orders_index.sql safe on prod?")', true), 'gap');
       var wait1 = a.spin('claude', 'Relaying', 3);
       a.caption(2, 'relay passes the question along with the repo context.');
-      await a.send('codex', 'question · context');
+      await a.send('codex', 'question · chat');
 
       a.focus('codex');
       a.line('codex', cx.you('[relay] claude asks: Is migrations/0042_orders_index.sql safe to run on prod? (read-only)'));
