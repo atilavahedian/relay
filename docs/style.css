@@ -220,13 +220,12 @@ h1 .grad {
 .ring { position: absolute; left: 50%; top: 50%; width: 76px; height: 30px; border-radius: 999px; border: 2px solid var(--accent); transform: translate(-50%, -50%); opacity: 0; pointer-events: none; z-index: 1; }
 .ring.go { animation: ripple .75s ease-out; }
 @keyframes ripple { from { opacity: .8; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) scale(2.3); } }
-.packet { position: absolute; z-index: 1; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); opacity: 0; pointer-events: none; }
-.packet.to-codex { background: var(--codex); box-shadow: 0 0 18px 5px rgba(124,199,255,.65); }
-.packet.to-claude { background: var(--claude); box-shadow: 0 0 18px 5px rgba(217,119,87,.65); }
-.cargo { position: absolute; z-index: 2; left: calc(50% + 58px); top: 50%; transform: translateY(-50%); font: 500 10.5px/1.35 var(--mono); white-space: nowrap; opacity: 0; transition: opacity .25s ease; pointer-events: none; }
-@media (min-width: 960px) { .cargo { left: 50%; top: calc(50% + 26px); transform: translateX(-50%); width: 124px; white-space: normal; text-align: center; } }
-.channel.to-codex .cargo { opacity: 1; color: var(--codex); }
-.channel.to-claude .cargo { opacity: 1; color: var(--claude); }
+.packet {
+  position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0; pointer-events: none;
+  font: 600 11px var(--mono); white-space: nowrap; color: #0a0a0c; padding: 4px 10px; border-radius: 999px;
+}
+.packet.to-codex { background: var(--codex); box-shadow: 0 0 22px 2px rgba(124,199,255,.7); }
+.packet.to-claude { background: var(--claude); box-shadow: 0 0 22px 2px rgba(217,119,87,.7); }
 .win.sending.claude { box-shadow: 0 0 0 1px rgba(217,119,87,.35), 0 0 60px -10px rgba(217,119,87,.55); }
 .win.sending.codex { box-shadow: 0 0 0 1px rgba(124,199,255,.35), 0 0 60px -10px rgba(124,199,255,.5); }
 @media (prefers-reduced-motion: reduce) { .flow, .ring.go, .hub i { animation: none !important; } }

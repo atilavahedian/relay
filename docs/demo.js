@@ -28,7 +28,6 @@
   var hub = $('#hub');
   var packet = $('#packet');
   var ring = $('#ring');
-  var cargo = $('#cargo');
   var channel = packet.parentNode;
   var caption = $('#caption');
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
@@ -104,36 +103,37 @@
           },
         };
       },
-      // Work visibly travels through relay: the rail streams toward the receiver, a glowing
-      // packet rides it, relay pulses as it passes through, and the sender/receiver light up.
+      // Work visibly travels through relay: the labeled packet slides from one agent to the
+      // other along a streaming rail, relay pulses as it passes, and both windows light up.
       send: function (to, label) {
         check();
         var from = to === 'codex' ? 'claude' : 'codex';
-        cargo.textContent = label;
-        packet.className = 'packet ' + (to === 'codex' ? 'to-codex' : 'to-claude');
+        var dir = to === 'codex' ? 'to-codex' : 'to-claude';
+        packet.textContent = label;
+        packet.className = 'packet ' + dir;
         channel.classList.remove('to-codex', 'to-claude');
-        channel.classList.add(to === 'codex' ? 'to-codex' : 'to-claude');
+        channel.classList.add(dir);
         W[from].el.classList.add('sending');
         var horizontal = window.matchMedia('(min-width: 960px)').matches;
-        var start = to === 'codex' ? -4 : 104;
-        end = to === 'codex' ? 104 : -4;
+        var start = to === 'codex' ? -15 : 115;
+        var end = to === 'codex' ? 115 : -15;
         var at = function (p, o) {
           return horizontal ? { left: p + '%', top: '50%', opacity: o } : { top: p + '%', left: '50%', opacity: o };
         };
         if (packet.animate && !reduce) {
           packet.animate(
-            [at(start, 0), at(start + (end - start) * 0.1, 1), at(start + (end - start) * 0.9, 1), at(end, 0)],
-            { duration: 1400, easing: 'cubic-bezier(.45,0,.35,1)', fill: 'forwards' },
+            [at(start, 0), at(start + (end - start) * 0.15, 1), at(start + (end - start) * 0.85, 1), at(end, 0)],
+            { duration: 1000, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'forwards' },
           );
         }
-        return wait(620)
+        return wait(450)
           .then(function () {
             ring.classList.remove('go');
             void ring.offsetWidth;
             ring.classList.add('go');
             W[from].el.classList.remove('sending');
             W[to].el.classList.add('sending');
-            return wait(900);
+            return wait(600);
           })
           .then(function () {
             W[to].el.classList.remove('sending');
